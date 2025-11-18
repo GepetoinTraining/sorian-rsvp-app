@@ -19,7 +19,7 @@ export default function NewEventPage() {
             variant="subtle" 
             leftSection={<IconArrowLeft size={16}/>}
           >
-            Voltar para Dashboard
+            Voltar para DashBoard
           </Button>
         </Group>
         

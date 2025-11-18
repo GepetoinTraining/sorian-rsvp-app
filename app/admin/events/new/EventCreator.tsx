@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useActionState } from 'react';
-import { createEvent } from '@/app/admin/actions';
+import { createEvent, updateEvent } from '@/app/admin/actions'; // Import updateEvent
 import {
   TextInput,
   Textarea,
@@ -36,6 +36,7 @@ import {
 } from '@tabler/icons-react';
 
 // --- TYPES ---
+// (Keep types defined as before)
 interface MenuItem { title: string; description: string; imageUrl: string; }
 interface Speaker { name: string; role: string; bio: string; imageUrl: string; }
 interface TimelineItem { time: string; title: string; description: string; order: number; }
@@ -47,8 +48,7 @@ interface ActionState {
   errors?: { [key: string]: string[] | undefined; };
 }
 
-// --- INITIAL STATE ---
-const INITIAL_EVENT = {
+const INITIAL_EVENT_STATE = {
   name: "",
   description: "",
   dressCode: "",
@@ -62,26 +62,35 @@ const INITIAL_EVENT = {
   participants: [] as Participant[],
 };
 
-export function EventCreator() {
-  const [eventData, setEventData] = useState(INITIAL_EVENT);
-  const [jsonString, setJsonString] = useState(JSON.stringify(INITIAL_EVENT, null, 2));
+interface EventCreatorProps {
+  initialData?: typeof INITIAL_EVENT_STATE;
+  eventId?: string;
+}
+
+export function EventCreator({ initialData, eventId }: EventCreatorProps) {
+  // Use initialData if provided (Edit Mode), otherwise default (Create Mode)
+  const [eventData, setEventData] = useState(initialData || INITIAL_EVENT_STATE);
+  const [jsonString, setJsonString] = useState(JSON.stringify(eventData, null, 2));
   const [jsonError, setJsonError] = useState<string | null>(null);
-  
-  // State for the Master-Detail view in the Menu Tab
   const [activeMenuItemIndex, setActiveMenuItemIndex] = useState<number | null>(null);
+  const [bulkNames, setBulkNames] = useState("");
+
+  // DYNAMIC ACTION BINDING
+  // If eventId exists, bind updateEvent with the ID. Otherwise use createEvent.
+  const actionToUse = eventId ? updateEvent.bind(null, eventId) : createEvent;
 
   const [state, formAction, isPending] = useActionState<ActionState, FormData>(
-    createEvent as any, 
+    actionToUse as any, 
     { success: false, message: null }
   );
 
   // --- SYNC HELPERS ---
-  const updateState = (newData: typeof INITIAL_EVENT) => {
+  const updateState = (newData: typeof INITIAL_EVENT_STATE) => {
     setEventData(newData);
     setJsonString(JSON.stringify(newData, null, 2));
   };
 
-  const handleFieldChange = (field: keyof typeof INITIAL_EVENT, value: any) => {
+  const handleFieldChange = (field: keyof typeof INITIAL_EVENT_STATE, value: any) => {
     updateState({ ...eventData, [field]: value });
   };
 
@@ -96,27 +105,18 @@ export function EventCreator() {
     }
   };
 
+  // --- ITEM HELPERS ---
   const addItem = (field: 'menuItems' | 'speakers' | 'timeline' | 'participants', item: any) => {
     const newArr = [...eventData[field], item];
     handleFieldChange(field, newArr);
-    
-    // If adding a menu item, automatically select it
-    if (field === 'menuItems') {
-      setActiveMenuItemIndex(newArr.length - 1);
-    }
+    if (field === 'menuItems') setActiveMenuItemIndex(newArr.length - 1);
   };
 
   const removeItem = (field: 'menuItems' | 'speakers' | 'timeline' | 'participants', index: number) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const newArr = (eventData[field] as any[]).filter((_, i) => i !== index);
     handleFieldChange(field, newArr);
-    
-    // If removing the active menu item, deselect or select previous
-    if (field === 'menuItems' && index === activeMenuItemIndex) {
-        setActiveMenuItemIndex(null);
-    } else if (field === 'menuItems' && activeMenuItemIndex !== null && index < activeMenuItemIndex) {
-        setActiveMenuItemIndex(activeMenuItemIndex - 1);
-    }
+    if (field === 'menuItems' && index === activeMenuItemIndex) setActiveMenuItemIndex(null);
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -127,8 +127,6 @@ export function EventCreator() {
     handleFieldChange(field, newArr);
   };
 
-  // Quick add for participants
-  const [bulkNames, setBulkNames] = useState("");
   const handleBulkAdd = () => {
     if (!bulkNames) return;
     const names = bulkNames.split('\n').filter(n => n.trim() !== '').map(name => ({ name: name.trim() }));
@@ -144,7 +142,7 @@ export function EventCreator() {
         <LoadingOverlay visible={isPending} />
         
         <Group justify="space-between" mb="lg">
-          <Title order={2}>Criar Novo Evento</Title>
+          <Title order={2}>{eventId ? "Editar Evento" : "Criar Novo Evento"}</Title>
           {state?.message && (
             <Alert color={state.success ? 'green' : 'red'} icon={<IconAlertCircle />}>
               {state.message}
@@ -170,12 +168,12 @@ export function EventCreator() {
                 <Tabs.Tab value="settings" leftSection={<IconSettings style={iconStyle} />}>Configurações</Tabs.Tab>
               </Tabs.List>
 
-              {/* 1. GENERAL TAB */}
+              {/* 1. GENERAL */}
               <Tabs.Panel value="general">
                 <Grid gutter="xl">
                   <Grid.Col span={{ base: 12, md: 8 }}>
                     <Stack gap="md">
-                      <TextInput label="Nome do Evento" placeholder="Ex: Jantar de Verão" value={eventData.name} onChange={(e) => handleFieldChange('name', e.target.value)} error={state?.errors?.name} required />
+                      <TextInput label="Nome do Evento" value={eventData.name} onChange={(e) => handleFieldChange('name', e.target.value)} required />
                       <Textarea label="Descrição" value={eventData.description} onChange={(e) => handleFieldChange('description', e.target.value)} minRows={4} />
                       <Group grow>
                         <TextInput label="Dress Code" value={eventData.dressCode} onChange={(e) => handleFieldChange('dressCode', e.target.value)} />
@@ -185,210 +183,106 @@ export function EventCreator() {
                   </Grid.Col>
                   <Grid.Col span={{ base: 12, md: 4 }}>
                     <Stack>
-                      <DateSelector value={eventData.availableDates} onChange={(dates) => handleFieldChange('availableDates', dates)} error={state?.errors?.availableDates} />
+                      <DateSelector value={eventData.availableDates} onChange={(dates) => handleFieldChange('availableDates', dates)} />
                       <ImageUpload label="Imagem de Capa" value={eventData.imageUrl} onChange={(url) => handleFieldChange('imageUrl', url)} />
                     </Stack>
                   </Grid.Col>
                 </Grid>
               </Tabs.Panel>
 
-              {/* 2. TIMELINE TAB */}
+              {/* 2. TIMELINE */}
               <Tabs.Panel value="timeline">
                 <Stack gap="md">
-                  <Group justify="flex-end">
-                    <Button leftSection={<IconPlus size={16} />} onClick={() => addItem('timeline', { time: '19:00', title: '', description: '', order: eventData.timeline.length + 1 })} variant="light">Adicionar Horário</Button>
-                  </Group>
+                  <Button variant="light" leftSection={<IconPlus size={16}/>} onClick={() => addItem('timeline', { time: '19:00', title: '', description: '', order: eventData.timeline.length + 1 })}>Adicionar Horário</Button>
                   {eventData.timeline.map((item, idx) => (
-                    <Card key={idx} withBorder padding="sm" radius="sm">
-                      <Group align="flex-start">
-                        <TextInput placeholder="00:00" w={80} value={item.time} onChange={(e) => updateItem('timeline', idx, 'time', e.target.value)} />
-                        <Stack gap="xs" style={{ flexGrow: 1 }}>
-                          <TextInput placeholder="O que vai acontecer?" value={item.title} onChange={(e) => updateItem('timeline', idx, 'title', e.target.value)} />
-                          <Textarea placeholder="Detalhes adicionais" autosize minRows={1} value={item.description} onChange={(e) => updateItem('timeline', idx, 'description', e.target.value)} />
-                        </Stack>
-                        <NumberInput w={70} value={item.order} onChange={(val) => updateItem('timeline', idx, 'order', val)} />
-                        <ActionIcon color="red" variant="subtle" onClick={() => removeItem('timeline', idx)}><IconTrash size={16} /></ActionIcon>
-                      </Group>
-                    </Card>
+                    <Card key={idx} withBorder padding="sm"><Group align="flex-start"><TextInput w={80} value={item.time} onChange={(e) => updateItem('timeline', idx, 'time', e.target.value)} /><TextInput style={{flexGrow:1}} value={item.title} onChange={(e) => updateItem('timeline', idx, 'title', e.target.value)} /><ActionIcon color="red" onClick={() => removeItem('timeline', idx)}><IconTrash size={16}/></ActionIcon></Group></Card>
                   ))}
                 </Stack>
               </Tabs.Panel>
 
-              {/* 3. SPEAKERS TAB */}
+              {/* 3. SPEAKERS */}
               <Tabs.Panel value="speakers">
                 <Stack gap="md">
-                  <Group justify="flex-end">
-                    <Button leftSection={<IconPlus size={16} />} onClick={() => addItem('speakers', { name: '', role: '', bio: '', imageUrl: '' })} variant="light">Adicionar Palestrante</Button>
-                  </Group>
-                  <Grid>
+                   <Button variant="light" leftSection={<IconPlus size={16}/>} onClick={() => addItem('speakers', { name: '', role: '', bio: '', imageUrl: '' })}>Adicionar Palestrante</Button>
+                   <Grid>
                     {eventData.speakers.map((speaker, idx) => (
-                      <Grid.Col key={idx} span={{ base: 12, md: 6 }}>
-                        <Card withBorder padding="sm" radius="sm">
-                           <Group justify="flex-end" mb="xs">
-                              <ActionIcon color="red" variant="subtle" size="xs" onClick={() => removeItem('speakers', idx)}><IconTrash size={14} /></ActionIcon>
-                           </Group>
+                      <Grid.Col key={idx} span={6}>
+                        <Card withBorder padding="sm">
+                           <Group justify="flex-end"><ActionIcon color="red" size="xs" onClick={() => removeItem('speakers', idx)}><IconTrash size={14}/></ActionIcon></Group>
                            <Group align="flex-start">
-                              <Stack gap={4}><ImageUpload label="" value={speaker.imageUrl} onChange={(url) => updateItem('speakers', idx, 'imageUrl', url)} /></Stack>
-                              <Stack gap="xs" style={{ flexGrow: 1 }}>
+                              <ImageUpload value={speaker.imageUrl} onChange={(url) => updateItem('speakers', idx, 'imageUrl', url)} label="" />
+                              <Stack gap="xs" style={{flexGrow:1}}>
                                 <TextInput placeholder="Nome" value={speaker.name} onChange={(e) => updateItem('speakers', idx, 'name', e.target.value)} />
-                                <TextInput placeholder="Cargo / Título" value={speaker.role} onChange={(e) => updateItem('speakers', idx, 'role', e.target.value)} />
-                                <Textarea placeholder="Bio curta" autosize value={speaker.bio} onChange={(e) => updateItem('speakers', idx, 'bio', e.target.value)} />
+                                <TextInput placeholder="Role" value={speaker.role} onChange={(e) => updateItem('speakers', idx, 'role', e.target.value)} />
                               </Stack>
                            </Group>
                         </Card>
                       </Grid.Col>
                     ))}
-                  </Grid>
+                   </Grid>
                 </Stack>
               </Tabs.Panel>
 
-              {/* 4. MENU TAB - UPDATED MASTER-DETAIL LAYOUT */}
+              {/* 4. MENU - MASTER DETAIL */}
               <Tabs.Panel value="menu">
                 <Paper withBorder h={500} style={{ display: 'flex', overflow: 'hidden' }}>
-                  {/* SIDEBAR LIST */}
                   <Box w={250} style={{ borderRight: '1px solid var(--mantine-color-gray-3)', display: 'flex', flexDirection: 'column' }}>
                      <Box p="md" style={{ borderBottom: '1px solid var(--mantine-color-gray-3)' }}>
-                        <Button 
-                          fullWidth 
-                          variant="light" 
-                          leftSection={<IconPlus size={16} />} 
-                          onClick={() => addItem('menuItems', { title: 'Novo Prato', description: '', imageUrl: '' })}
-                        >
-                          Novo Item
-                        </Button>
+                        <Button fullWidth variant="light" leftSection={<IconPlus size={16} />} onClick={() => addItem('menuItems', { title: 'Novo Prato', description: '', imageUrl: '' })}>Novo Item</Button>
                      </Box>
                      <ScrollArea style={{ flexGrow: 1 }}>
-                        {eventData.menuItems.length === 0 && (
-                          <Text c="dimmed" p="md" size="sm" ta="center">Menu vazio.</Text>
-                        )}
                         {eventData.menuItems.map((item, idx) => (
-                          <NavLink
-                            key={idx}
-                            label={item.title || "(Sem título)"}
-                            description={item.description?.slice(0, 20) + (item.description?.length > 20 ? '...' : '')}
-                            active={idx === activeMenuItemIndex}
-                            onClick={() => setActiveMenuItemIndex(idx)}
-                            rightSection={<IconChevronRight size={14} stroke={1.5} />}
-                            color="red"
-                            variant="light"
-                          />
+                          <NavLink key={idx} label={item.title || "(Sem título)"} active={idx === activeMenuItemIndex} onClick={() => setActiveMenuItemIndex(idx)} rightSection={<IconChevronRight size={14} />} color="red" variant="light" />
                         ))}
                      </ScrollArea>
                   </Box>
-
-                  {/* DETAIL FORM */}
                   <Box style={{ flexGrow: 1 }} p="lg" bg="gray.0">
                     {activeMenuItemIndex !== null && eventData.menuItems[activeMenuItemIndex] ? (
-                      <Stack gap="md" h="100%">
-                        <Group justify="space-between">
-                          <Title order={4}>Editar Item</Title>
-                          <Button 
-                            color="red" 
-                            variant="subtle" 
-                            size="xs" 
-                            leftSection={<IconTrash size={16} />}
-                            onClick={() => removeItem('menuItems', activeMenuItemIndex)}
-                          >
-                            Remover
-                          </Button>
-                        </Group>
-                        
-                        <Paper withBorder p="md" shadow="sm" radius="md" style={{ flexGrow: 1 }}>
+                      <Stack gap="md">
+                        <Group justify="space-between"><Title order={4}>Editar Item</Title><Button color="red" variant="subtle" size="xs" onClick={() => removeItem('menuItems', activeMenuItemIndex)}>Remover</Button></Group>
+                        <Paper withBorder p="md" shadow="sm" radius="md">
                           <Stack gap="md">
-                            <TextInput 
-                              label="Título do Prato / Linha"
-                              placeholder="Ex: Linha 1: A Luz Filtrada" 
-                              value={eventData.menuItems[activeMenuItemIndex].title}
-                              onChange={(e) => updateItem('menuItems', activeMenuItemIndex, 'title', e.target.value)}
-                            />
-                            <Textarea 
-                              label="Descrição / Pratos"
-                              placeholder="Liste os pratos desta linha..." 
-                              autosize 
-                              minRows={4}
-                              value={eventData.menuItems[activeMenuItemIndex].description}
-                              onChange={(e) => updateItem('menuItems', activeMenuItemIndex, 'description', e.target.value)}
-                            />
-                            <ImageUpload 
-                              label="Imagem Conceitual"
-                              value={eventData.menuItems[activeMenuItemIndex].imageUrl}
-                              onChange={(url) => updateItem('menuItems', activeMenuItemIndex, 'imageUrl', url)}
-                            />
+                            <TextInput label="Título" value={eventData.menuItems[activeMenuItemIndex].title} onChange={(e) => updateItem('menuItems', activeMenuItemIndex, 'title', e.target.value)} />
+                            <Textarea label="Descrição" autosize minRows={4} value={eventData.menuItems[activeMenuItemIndex].description} onChange={(e) => updateItem('menuItems', activeMenuItemIndex, 'description', e.target.value)} />
+                            <ImageUpload label="Imagem" value={eventData.menuItems[activeMenuItemIndex].imageUrl} onChange={(url) => updateItem('menuItems', activeMenuItemIndex, 'imageUrl', url)} />
                           </Stack>
                         </Paper>
                       </Stack>
-                    ) : (
-                      <Stack align="center" justify="center" h="100%" c="dimmed">
-                        <IconToolsKitchen2 size={48} stroke={1} />
-                        <Text>Selecione um item do menu ou crie um novo.</Text>
-                      </Stack>
-                    )}
+                    ) : <Stack align="center" justify="center" h="100%" c="dimmed"><Text>Selecione um item.</Text></Stack>}
                   </Box>
                 </Paper>
               </Tabs.Panel>
 
-              {/* 5. PARTICIPANTS TAB */}
+              {/* 5. PARTICIPANTS */}
               <Tabs.Panel value="participants">
-                <Stack gap="xl">
+                <Stack gap="md">
                   <Group align="flex-start" grow>
+                    <Stack gap="xs"><Text fw={500}>Adicionar em Massa</Text><Textarea placeholder="Nomes (um por linha)" minRows={5} value={bulkNames} onChange={(e) => setBulkNames(e.target.value)} /><Button variant="light" onClick={handleBulkAdd}>Adicionar</Button></Stack>
                     <Stack gap="xs">
-                      <Text fw={500}>Adicionar em Massa</Text>
-                      <Textarea 
-                        placeholder="Cole uma lista de nomes (um por linha)" 
-                        minRows={5}
-                        value={bulkNames}
-                        onChange={(e) => setBulkNames(e.target.value)}
-                      />
-                      <Button variant="light" onClick={handleBulkAdd}>Processar Lista</Button>
-                    </Stack>
-                    <Stack gap="xs">
-                      <Text fw={500}>Lista de Convidados ({eventData.participants.length})</Text>
+                      <Text fw={500}>Lista ({eventData.participants.length})</Text>
                       <Paper withBorder h={200} style={{ overflowY: 'auto' }} p="xs">
                         <Stack gap="xs">
                           {eventData.participants.map((p, idx) => (
-                            <Group key={idx} justify="space-between">
-                              <Text size="sm">{p.name}</Text>
-                              <ActionIcon color="red" size="xs" variant="subtle" onClick={() => removeItem('participants', idx)}><IconTrash size={12}/></ActionIcon>
-                            </Group>
+                            <Group key={idx} justify="space-between"><Text size="sm">{p.name}</Text><ActionIcon color="red" size="xs" variant="subtle" onClick={() => removeItem('participants', idx)}><IconTrash size={12}/></ActionIcon></Group>
                           ))}
                         </Stack>
                       </Paper>
                     </Stack>
                   </Group>
                   <Divider />
-                  <InvitationGenerator 
-                    event={{ id: "preview", name: eventData.name || "Evento" }} 
-                    participants={eventData.participants} 
-                  />
+                  <InvitationGenerator event={{ id: eventId || "preview", name: eventData.name || "Evento" }} participants={eventData.participants} />
                 </Stack>
               </Tabs.Panel>
 
-              {/* 6. SETTINGS TAB */}
+              {/* 6. SETTINGS */}
               <Tabs.Panel value="settings">
-                <Paper withBorder p="lg" radius="md">
-                  <Title order={4} mb="md">Configurações de RSVP</Title>
-                  <Stack>
-                    <Group justify="space-between">
-                      <div>
-                        <Text fw={500}>Permitir Acompanhante (+1)</Text>
-                        <Text size="sm" c="dimmed">Os convidados poderão indicar se levarão alguém.</Text>
-                      </div>
-                      <Switch 
-                        size="lg"
-                        onLabel="ON" offLabel="OFF"
-                        checked={eventData.hasPlusOne}
-                        onChange={(e) => handleFieldChange('hasPlusOne', e.currentTarget.checked)}
-                      />
-                    </Group>
-                  </Stack>
-                </Paper>
+                <Paper withBorder p="lg"><Group justify="space-between"><Text fw={500}>Permitir +1</Text><Switch size="lg" onLabel="ON" offLabel="OFF" checked={eventData.hasPlusOne} onChange={(e) => handleFieldChange('hasPlusOne', e.currentTarget.checked)} /></Group></Paper>
               </Tabs.Panel>
             </Tabs>
           </Tabs.Panel>
 
-          {/* JSON EDITOR */}
           <Tabs.Panel value="json">
-            <JsonInput label="JSON Completo" validationError={jsonError} formatOnBlur autosize minRows={20} value={jsonString} onChange={handleJsonChange} />
+            <JsonInput label="JSON" value={jsonString} onChange={handleJsonChange} formatOnBlur autosize minRows={20} />
           </Tabs.Panel>
         </Tabs>
 
@@ -406,7 +300,7 @@ export function EventCreator() {
         <input type="hidden" name="imageUrl" value={eventData.imageUrl} />
 
         <Group justify="flex-end" mt="xl">
-          <Button type="submit" size="lg" color="red">Salvar Evento</Button>
+          <Button type="submit" size="lg" color="red">{eventId ? "Salvar Alterações" : "Criar Evento"}</Button>
         </Group>
       </Paper>
     </form>

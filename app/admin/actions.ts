@@ -15,41 +15,34 @@ const eventSchema = z.object({
   imageUrl: z.string().optional(),
   hasPlusOne: z.boolean().optional(),
   availableDates: z.array(z.string()).min(1, "Selecione pelo menos uma data"),
-  
-  // Relations
+  // Relations...
   menuItems: z.array(z.object({
     title: z.string(),
     description: z.string().optional(),
     imageUrl: z.string().optional(),
   })).optional(),
-  
   speakers: z.array(z.object({
     name: z.string(),
     role: z.string().optional(),
     bio: z.string().optional(),
     imageUrl: z.string().optional(),
   })).optional(),
-
   timeline: z.array(z.object({
     time: z.string(),
     title: z.string(),
     description: z.string().optional(),
     order: z.number().default(0),
   })).optional(),
-
   participants: z.array(z.object({
     name: z.string(),
   })).optional(),
 });
 
-export async function createEvent(prevState: any, formData: FormData) {
+export async function updateEvent(eventId: string, prevState: any, formData: FormData) {
   const session = await getServerSession(authOptions);
-  
-  if (!session?.user?.id) {
-    return { success: false, message: "Você precisa estar logado." };
-  }
+  if (!session?.user?.id) return { success: false, message: "Não autorizado" };
 
-  // Helper to safely parse JSON from FormData
+  // Helper to parse JSON
   const parseJson = (key: string) => {
     const val = formData.get(key);
     if (typeof val !== 'string' || !val) return [];
@@ -62,7 +55,6 @@ export async function createEvent(prevState: any, formData: FormData) {
     dressCode: formData.get('dressCode') as string,
     locationInfo: formData.get('locationInfo') as string,
     imageUrl: formData.get('imageUrl') as string,
-    // Boolean check for switch
     hasPlusOne: formData.get('hasPlusOne') === 'true',
     availableDates: parseJson('availableDates'),
     menuItems: parseJson('menuItems'),
@@ -74,61 +66,48 @@ export async function createEvent(prevState: any, formData: FormData) {
   const result = eventSchema.safeParse(rawData);
 
   if (!result.success) {
-    console.error(result.error.flatten());
-    return { 
-      success: false, 
-      message: "Erro de validação", 
-      errors: result.error.flatten().fieldErrors 
-    };
+    return { success: false, message: "Erro de validação", errors: result.error.flatten().fieldErrors };
   }
 
   try {
-    await prisma.event.create({
-      data: {
-        userId: session.user.id,
-        name: result.data.name,
-        description: result.data.description,
-        dressCode: result.data.dressCode,
-        locationInfo: result.data.locationInfo,
-        imageUrl: result.data.imageUrl,
-        availableDates: result.data.availableDates,
-        hasPlusOne: result.data.hasPlusOne || false,
-        
-        menuItems: {
-          create: result.data.menuItems?.map(item => ({
-            title: item.title,
-            description: item.description || "",
-            imageUrl: item.imageUrl || "",
-          }))
-        },
-        speakers: {
-          create: result.data.speakers?.map(s => ({
-            name: s.name,
-            role: s.role || "",
-            bio: s.bio || "",
-            imageUrl: s.imageUrl || "",
-          }))
-        },
-        timeline: {
-          create: result.data.timeline?.map(t => ({
-            time: t.time,
-            title: t.title,
-            description: t.description || "",
-            order: Number(t.order) || 0,
-          }))
-        },
-        participants: {
-          create: result.data.participants?.map(p => ({
-            name: p.name
-          }))
+    // Transaction to clean old relations and add new ones (Full Replace Strategy)
+    await prisma.$transaction([
+      // 1. Update basic info
+      prisma.event.update({
+        where: { id: eventId },
+        data: {
+          name: result.data.name,
+          description: result.data.description,
+          dressCode: result.data.dressCode,
+          locationInfo: result.data.locationInfo,
+          imageUrl: result.data.imageUrl,
+          hasPlusOne: result.data.hasPlusOne,
+          availableDates: result.data.availableDates,
         }
-      },
-    });
+      }),
+      // 2. Clear old relations
+      prisma.menuItem.deleteMany({ where: { eventId } }),
+      prisma.speaker.deleteMany({ where: { eventId } }),
+      prisma.timelineItem.deleteMany({ where: { eventId } }),
+      prisma.participant.deleteMany({ where: { eventId } }),
+      
+      // 3. Re-create relations
+      prisma.event.update({
+        where: { id: eventId },
+        data: {
+          menuItems: { create: result.data.menuItems },
+          speakers: { create: result.data.speakers },
+          timeline: { create: result.data.timeline },
+          participants: { create: result.data.participants },
+        }
+      })
+    ]);
 
-    revalidatePath('/events');
+    revalidatePath('/admin/dashboard');
+    revalidatePath(`/event/${eventId}`);
   } catch (error) {
-    console.error("Database Error:", error);
-    return { success: false, message: "Erro ao criar evento no banco de dados." };
+    console.error("Update Error:", error);
+    return { success: false, message: "Erro ao atualizar evento." };
   }
 
   redirect('/admin/dashboard');
