@@ -7,7 +7,6 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 
-// Schema with Menu Items
 const eventSchema = z.object({
   name: z.string().min(3, "O nome deve ter pelo menos 3 caracteres"),
   description: z.string().optional(),
@@ -15,10 +14,26 @@ const eventSchema = z.object({
   locationInfo: z.string().optional(),
   imageUrl: z.string().optional(),
   availableDates: z.array(z.string()).min(1, "Selecione pelo menos uma data"),
+  
+  // New Relations
   menuItems: z.array(z.object({
     title: z.string(),
     description: z.string().optional(),
     imageUrl: z.string().optional(),
+  })).optional(),
+  
+  speakers: z.array(z.object({
+    name: z.string(),
+    role: z.string().optional(),
+    bio: z.string().optional(),
+    imageUrl: z.string().optional(),
+  })).optional(),
+
+  timeline: z.array(z.object({
+    time: z.string(),
+    title: z.string(),
+    description: z.string().optional(),
+    order: z.number().default(0),
   })).optional(),
 });
 
@@ -28,9 +43,12 @@ export async function createEvent(prevState: any, formData: FormData) {
     return { success: false, message: "Você precisa estar logado." };
   }
 
-  // Parse JSON fields from the hidden inputs
-  const availableDatesRaw = formData.get('availableDates') as string;
-  const menuItemsRaw = formData.get('menuItems') as string;
+  // Helper to parse JSON from form
+  const parseJson = (key: string) => {
+    const val = formData.get(key);
+    if (typeof val !== 'string' || !val) return [];
+    try { return JSON.parse(val); } catch { return []; }
+  };
 
   const rawData = {
     name: formData.get('name') as string,
@@ -38,8 +56,10 @@ export async function createEvent(prevState: any, formData: FormData) {
     dressCode: formData.get('dressCode') as string,
     locationInfo: formData.get('locationInfo') as string,
     imageUrl: formData.get('imageUrl') as string,
-    availableDates: availableDatesRaw ? JSON.parse(availableDatesRaw) : [],
-    menuItems: menuItemsRaw ? JSON.parse(menuItemsRaw) : [],
+    availableDates: parseJson('availableDates'),
+    menuItems: parseJson('menuItems'),
+    speakers: parseJson('speakers'),
+    timeline: parseJson('timeline'),
   };
 
   const result = eventSchema.safeParse(rawData);
@@ -53,7 +73,6 @@ export async function createEvent(prevState: any, formData: FormData) {
   }
 
   try {
-    // Create Event AND Menu Items in one transaction
     await prisma.event.create({
       data: {
         userId: session.user.id,
@@ -63,12 +82,29 @@ export async function createEvent(prevState: any, formData: FormData) {
         locationInfo: result.data.locationInfo,
         imageUrl: result.data.imageUrl,
         availableDates: result.data.availableDates,
-        // Prisma nested write
+        
+        // Nested writes
         menuItems: {
           create: result.data.menuItems?.map(item => ({
             title: item.title,
             description: item.description || "",
             imageUrl: item.imageUrl || "",
+          }))
+        },
+        speakers: {
+          create: result.data.speakers?.map(s => ({
+            name: s.name,
+            role: s.role || "",
+            bio: s.bio || "",
+            imageUrl: s.imageUrl || "",
+          }))
+        },
+        timeline: {
+          create: result.data.timeline?.map(t => ({
+            time: t.time,
+            title: t.title,
+            description: t.description || "",
+            order: Number(t.order) || 0,
           }))
         }
       },
