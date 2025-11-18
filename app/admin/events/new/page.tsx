@@ -1,6 +1,8 @@
 // app/admin/events/new/page.tsx
+'use client';
+
 import { Container, Button, Group } from '@mantine/core';
-import { EventCreator } from './EventCreator'; // Import the client component
+import { EventCreator } from './EventCreator';
 import Link from 'next/link';
 import { IconArrowLeft } from '@tabler/icons-react';
 import { Header } from '@/app/components/Header';
