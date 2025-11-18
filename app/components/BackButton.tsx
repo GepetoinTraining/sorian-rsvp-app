@@ -1,4 +1,3 @@
-// app/components/BackButton.tsx
 'use client';
 
 import { Button, ButtonProps } from '@mantine/core';
