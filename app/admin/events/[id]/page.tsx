@@ -3,7 +3,8 @@ import { Container } from '@mantine/core';
 import { EventHeader } from '@/app/components/EventHeader';
 import { EventDetails } from '@/app/components/EventDetails';
 import { ConceptualMenu } from '@/app/components/ConceptualMenu';
-import RsvpForm from './RsvpForm';
+// FIX: Updated import path to point to the correct location of RsvpForm
+import RsvpForm from '@/app/event/[id]/RsvpForm'; 
 
 // Helper to get event
 async function getEvent(id: string) {
@@ -13,7 +14,6 @@ async function getEvent(id: string) {
   });
 }
 
-// FIX: Update types to Promise and await them
 export default async function EventPage({ 
   params, 
   searchParams 
