@@ -1,65 +1,131 @@
-import Image from "next/image";
+// app/page.tsx
+import { prisma } from '@/app/lib/prisma';
+import { Header } from '@/app/components/Header';
+import { 
+  Container, 
+  Title, 
+  Text, 
+  SimpleGrid, 
+  Card, 
+  Image, 
+  Button, 
+  Group, 
+  Badge, 
+  Stack 
+} from '@mantine/core';
+import Link from 'next/link';
+import { IconMapPin } from '@tabler/icons-react';
 
-export default function Home() {
+// Fetch data on the server
+async function getEvents() {
+  return await prisma.event.findMany({
+    orderBy: { createdAt: 'desc' }
+  });
+}
+
+export default async function HomePage() {
+  const events = await getEvents();
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <>
+      <Header />
+      
+      <main>
+        <Container size="lg" py="xl">
+          {/* Hero Section */}
+          <Stack align="center" gap="xs" my={50}>
+            <Title 
+              order={1} 
+              fz={{ base: 36, sm: 48 }} 
+              style={{ fontFamily: 'var(--font-playfair), serif' }}
+              c="gray.9"
+              ta="center"
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+              Eventos Sorian
+            </Title>
+            <Text c="dimmed" size="lg" ta="center" maw={600}>
+              Experiências exclusivas de design e conforto. 
+              Selecione um evento para confirmar sua presença.
+            </Text>
+            <div style={{ width: 60, height: 4, backgroundColor: '#fa5252', marginTop: 20 }} />
+          </Stack>
+
+          {/* Events Grid */}
+          <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="lg">
+            {events.map((event) => (
+              <Card 
+                key={event.id} 
+                shadow="sm" 
+                padding="lg" 
+                radius="md" 
+                withBorder
+                component={Link}
+                href={`/event/${event.id}`}
+                className="hover:shadow-md transition-shadow duration-200"
+                style={{ display: 'flex', flexDirection: 'column' }}
+              >
+                <Card.Section>
+                  <Image
+                    src={event.imageUrl || "https://placehold.co/600x400?text=Sorian"}
+                    height={200}
+                    alt={event.name}
+                    fit="cover"
+                  />
+                </Card.Section>
+
+                <Stack gap="xs" mt="md" mb="xs" style={{ flexGrow: 1 }}>
+                  <Group justify="space-between">
+                    <Badge color="red" variant="light">
+                      Convite Aberto
+                    </Badge>
+                  </Group>
+                  
+                  <Title order={3} fz="xl" fw={600} lineClamp={2} style={{ fontFamily: 'var(--font-playfair), serif' }}>
+                    {event.name}
+                  </Title>
+                  
+                  <Text size="sm" c="dimmed" lineClamp={3}>
+                    {event.description || "Sem descrição disponível."}
+                  </Text>
+                </Stack>
+
+                <Group gap="sm" mt="xl">
+                  <Stack gap={4}>
+                     {event.locationInfo && (
+                        <Group gap={6}>
+                          <IconMapPin size={16} color="gray" />
+                          <Text size="xs" c="dimmed" lineClamp={1}>{event.locationInfo}</Text>
+                        </Group>
+                     )}
+                  </Stack>
+                </Group>
+
+                <Button 
+                  color="red" 
+                  variant="filled"
+                  fullWidth 
+                  mt="md" 
+                  radius="md"
+                >
+                  Ver Detalhes & RSVP
+                </Button>
+              </Card>
+            ))}
+          </SimpleGrid>
+          
+          {/* Empty State */}
+          {events.length === 0 && (
+            <Container size="sm" py={80}>
+              <Text c="dimmed" ta="center" size="lg" mb="md">Nenhum evento encontrado.</Text>
+              <Group justify="center">
+                <Button component={Link} href="/auth/login" variant="subtle" color="gray">
+                  Acesso Administrativo
+                </Button>
+              </Group>
+            </Container>
+          )}
+        </Container>
       </main>
-    </div>
+    </>
   );
 }

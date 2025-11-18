@@ -1,10 +1,11 @@
-// src/lib/auth.js
+// lib/auth.ts
+import { AuthOptions } from 'next-auth';
 import { PrismaAdapter } from '@auth/prisma-adapter';
 import CredentialsProvider from 'next-auth/providers/credentials';
-import { prisma } from '@/lib/prisma';
-import bcrypt from 'bcryptjs'; 
+import { prisma } from '@/app/lib/prisma';
+import bcrypt from 'bcryptjs';
 
-export const authOptions = {
+export const authOptions: AuthOptions = {
   adapter: PrismaAdapter(prisma),
   session: {
     strategy: 'jwt',
@@ -21,17 +22,14 @@ export const authOptions = {
           return null;
         }
 
-        // 1. Check if user exists
         const user = await prisma.user.findUnique({
           where: { email: credentials.email },
         });
 
-        // 2. Check if password exists (it might be null if user registered via OAuth in future)
         if (!user || !user.passwordHash) {
           return null;
         }
 
-        // 3. Validate password
         const isPasswordValid = await bcrypt.compare(
           credentials.password,
           user.passwordHash
@@ -46,22 +44,21 @@ export const authOptions = {
     }),
   ],
   callbacks: {
-    // Add user ID to the session so we can link events to the user
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id;
+      }
+      return token;
+    },
     async session({ session, token }) {
-      if (session.user && token.sub) {
-        session.user.id = token.sub;
+      if (session.user) {
+        session.user.id = token.id as string;
       }
       return session;
     },
-    async jwt({ token, user }) {
-      if (user) {
-        token.sub = user.id;
-      }
-      return token;
-    }
   },
   pages: {
-    signIn: '/auth/login', // We will build this custom page later
+    signIn: '/auth/login',
   },
   secret: process.env.NEXTAUTH_SECRET,
 };
