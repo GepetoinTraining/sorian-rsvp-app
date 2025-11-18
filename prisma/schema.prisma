@@ -87,11 +87,17 @@ model Event {
 
   availableDates  String[]
 
-  // Relations
+// New Toggle
+  hasPlusOne      Boolean  @default(false)
+
+  // Existing Relations
   menuItems       MenuItem[] 
   speakers        Speaker[]
   timeline        TimelineItem[]
   rsvps           RSVP[]
+  
+  // New Relation
+  participants    Participant[]
   
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -151,4 +157,14 @@ model RSVP {
   
   createdAt     DateTime @default(now())
   @@map("rsvps")
+}
+
+model Participant {
+  id          String   @id @default(cuid())
+  eventId     String
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  name        String   @db.Text
+  
+  @@map("participants")
 }

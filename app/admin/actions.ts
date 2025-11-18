@@ -13,9 +13,10 @@ const eventSchema = z.object({
   dressCode: z.string().optional(),
   locationInfo: z.string().optional(),
   imageUrl: z.string().optional(),
+  hasPlusOne: z.boolean().optional(),
   availableDates: z.array(z.string()).min(1, "Selecione pelo menos uma data"),
   
-  // New Relations
+  // Relations
   menuItems: z.array(z.object({
     title: z.string(),
     description: z.string().optional(),
@@ -35,15 +36,20 @@ const eventSchema = z.object({
     description: z.string().optional(),
     order: z.number().default(0),
   })).optional(),
+
+  participants: z.array(z.object({
+    name: z.string(),
+  })).optional(),
 });
 
 export async function createEvent(prevState: any, formData: FormData) {
   const session = await getServerSession(authOptions);
+  
   if (!session?.user?.id) {
     return { success: false, message: "Você precisa estar logado." };
   }
 
-  // Helper to parse JSON from form
+  // Helper to safely parse JSON from FormData
   const parseJson = (key: string) => {
     const val = formData.get(key);
     if (typeof val !== 'string' || !val) return [];
@@ -56,15 +62,19 @@ export async function createEvent(prevState: any, formData: FormData) {
     dressCode: formData.get('dressCode') as string,
     locationInfo: formData.get('locationInfo') as string,
     imageUrl: formData.get('imageUrl') as string,
+    // Boolean check for switch
+    hasPlusOne: formData.get('hasPlusOne') === 'true',
     availableDates: parseJson('availableDates'),
     menuItems: parseJson('menuItems'),
     speakers: parseJson('speakers'),
     timeline: parseJson('timeline'),
+    participants: parseJson('participants'),
   };
 
   const result = eventSchema.safeParse(rawData);
 
   if (!result.success) {
+    console.error(result.error.flatten());
     return { 
       success: false, 
       message: "Erro de validação", 
@@ -82,8 +92,8 @@ export async function createEvent(prevState: any, formData: FormData) {
         locationInfo: result.data.locationInfo,
         imageUrl: result.data.imageUrl,
         availableDates: result.data.availableDates,
+        hasPlusOne: result.data.hasPlusOne || false,
         
-        // Nested writes
         menuItems: {
           create: result.data.menuItems?.map(item => ({
             title: item.title,
@@ -106,13 +116,18 @@ export async function createEvent(prevState: any, formData: FormData) {
             description: t.description || "",
             order: Number(t.order) || 0,
           }))
+        },
+        participants: {
+          create: result.data.participants?.map(p => ({
+            name: p.name
+          }))
         }
       },
     });
 
     revalidatePath('/events');
   } catch (error) {
-    console.error(error);
+    console.error("Database Error:", error);
     return { success: false, message: "Erro ao criar evento no banco de dados." };
   }
 
