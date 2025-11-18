@@ -1,5 +1,5 @@
 import { prisma } from '@/app/lib/prisma';
-import { Container, Title, Text, Paper } from '@mantine/core';
+import { Container } from '@mantine/core';
 import { EventHeader } from '@/app/components/EventHeader';
 import { EventDetails } from '@/app/components/EventDetails';
 import { ConceptualMenu } from '@/app/components/ConceptualMenu';
@@ -13,18 +13,23 @@ async function getEvent(id: string) {
   });
 }
 
+// FIX: Update types to Promise and await them
 export default async function EventPage({ 
   params, 
   searchParams 
 }: { 
-  params: { id: string }, 
-  searchParams: { name?: string } 
+  params: Promise<{ id: string }>, 
+  searchParams: Promise<{ name?: string }> 
 }) {
-  const event = await getEvent(params.id);
-  const preFilledName = searchParams.name || "";
+  // 1. Await the promises
+  const { id } = await params;
+  const { name } = await searchParams;
+
+  // 2. Now use the resolved ID
+  const event = await getEvent(id);
+  const preFilledName = name || "";
 
   if (!event) {
-     // ... 404 view ...
      return <div>Evento não encontrado</div>;
   }
 
@@ -47,8 +52,8 @@ export default async function EventPage({
       <RsvpForm 
         eventId={event.id}
         availableDates={event.availableDates}
-        hasPlusOne={event.hasPlusOne} // Pass the setting
-        initialName={preFilledName}   // Pass the name from QR code
+        hasPlusOne={event.hasPlusOne}
+        initialName={preFilledName}
       />
     </Container>
   );
