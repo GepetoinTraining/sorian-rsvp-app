@@ -1,0 +1,115 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  // This will read from Vercel's environment variables later
+  url      = env("DATABASE_URL")
+}
+
+// ===============================================
+// === 1. NEXT-AUTH MODELS (Standard Setup)   ===
+// ===============================================
+
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String? @db.Text
+  access_token       String? @db.Text
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String? @db.Text
+  session_state      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  passwordHash  String?   // Essential for Email/Password login
+  
+  accounts      Account[]
+  sessions      Session[]
+  
+  // Sorian Relations
+  events        Event[]
+
+  @@map("users")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ===============================================
+// === 2. SORIAN APP MODELS (Events & RSVPs)  ===
+// ===============================================
+
+model Event {
+  id              String   @id @default(cuid())
+  
+  // Owner Link (Only the admin user can manage this)
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+
+  name            String   @db.Text
+  description     String?  @db.Text
+  dressCode       String?  @db.Text
+  locationInfo    String?  @db.Text
+  imageUrl        String?  // URL for the cover image
+  
+  // Stores specific dates, e.g. ["2025-11-27", "2025-11-28"]
+  availableDates  String[]
+  
+  rsvps           RSVP[]
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  @@map("events")
+}
+
+model RSVP {
+  id            String   @id @default(cuid())
+  
+  eventId       String
+  event         Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  
+  guestName     String   @db.Text
+  bringingGuest Boolean  @default(false)
+  plusOneName   String?  @db.Text
+  
+  // Which dates did they select?
+  selectedDates String[]
+  
+  createdAt     DateTime @default(now())
+  @@map("rsvps")
+}
