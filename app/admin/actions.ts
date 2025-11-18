@@ -38,6 +38,63 @@ const eventSchema = z.object({
   })).optional(),
 });
 
+export async function createEvent(prevState: any, formData: FormData) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) return { success: false, message: "Não autorizado" };
+
+  const parseJson = (key: string) => {
+    const val = formData.get(key);
+    if (typeof val !== 'string' || !val) return [];
+    try { return JSON.parse(val); } catch { return []; }
+  };
+
+  const rawData = {
+    name: formData.get('name') as string,
+    description: formData.get('description') as string,
+    dressCode: formData.get('dressCode') as string,
+    locationInfo: formData.get('locationInfo') as string,
+    imageUrl: formData.get('imageUrl') as string,
+    hasPlusOne: formData.get('hasPlusOne') === 'true',
+    availableDates: parseJson('availableDates'),
+    menuItems: parseJson('menuItems'),
+    speakers: parseJson('speakers'),
+    timeline: parseJson('timeline'),
+    participants: parseJson('participants'),
+  };
+
+  const result = eventSchema.safeParse(rawData);
+
+  if (!result.success) {
+    return { success: false, message: "Erro de validação", errors: result.error.flatten().fieldErrors };
+  }
+
+  try {
+    await prisma.event.create({
+      data: {
+        userId: session.user.id,
+        name: result.data.name,
+        description: result.data.description,
+        dressCode: result.data.dressCode,
+        locationInfo: result.data.locationInfo,
+        imageUrl: result.data.imageUrl,
+        hasPlusOne: result.data.hasPlusOne,
+        availableDates: result.data.availableDates,
+        menuItems: { create: result.data.menuItems },
+        speakers: { create: result.data.speakers },
+        timeline: { create: result.data.timeline },
+        participants: { create: result.data.participants },
+      },
+    });
+
+    revalidatePath('/admin/dashboard');
+  } catch (error) {
+    console.error("Create Error:", error);
+    return { success: false, message: "Erro ao criar evento." };
+  }
+
+  redirect('/admin/dashboard');
+}
+
 export async function updateEvent(eventId: string, prevState: any, formData: FormData) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return { success: false, message: "Não autorizado" };
