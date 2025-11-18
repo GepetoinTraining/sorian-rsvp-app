@@ -1,6 +1,4 @@
 // app/page.tsx
-"use server"
-
 import { prisma } from '@/app/lib/prisma';
 import { Header } from '@/app/components/Header';
 import { 
@@ -13,8 +11,8 @@ import {
   Stack,
 } from '@mantine/core';
 import Link from 'next/link';
-import { EventCardLink } from '@/app/components/EventCardLink'; // <<-- IMPORT NEW COMPONENT
-import { Event } from '@prisma/client';
+import { EventCardLink } from '@/app/components/EventCardLink'; 
+import type { Event } from '@prisma/client'; // <-- THE FIX: Import type explicitly
 
 // Fetch data on the server
 async function getEvents(): Promise<Event[]> {
@@ -53,7 +51,7 @@ export default async function HomePage() {
           {/* Events Grid */}
           <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="lg">
             {events.map((event) => (
-              <EventCardLink key={event.id} event={event} /> // <<-- USE CLIENT COMPONENT
+              <EventCardLink key={event.id} event={event} /> 
             ))}
           </SimpleGrid>
           
