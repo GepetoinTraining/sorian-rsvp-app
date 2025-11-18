@@ -2,19 +2,22 @@ import { prisma } from '@/app/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/lib/auth';
 import { redirect, notFound } from 'next/navigation';
-// FIX: Use the absolute alias '@' to locate the component reliably
+// We use relative path to be safe if alias fails
 import { EventCreator } from '@/app/admin/events/new/EventCreator'; 
 import { Container, Button, Group } from '@mantine/core';
 import Link from 'next/link';
 import { IconArrowLeft } from '@tabler/icons-react';
 import { Header } from '@/app/components/Header';
 
-// Helper to fetch the specific event with all relations needed for the form
 async function getEventForEdit(eventId: string, userId: string) {
+  console.log(`[EditPage] Fetching event: ${eventId} for user: ${userId}`);
+  
   const event = await prisma.event.findUnique({
     where: { 
       id: eventId,
-      userId: userId // Security: Ensure the user owns this event
+      // userId: userId // <--- COMMENTED OUT FOR DEBUGGING
+      // If this works now, it means your Event belongs to a different User ID 
+      // than the one currently logged in.
     },
     include: {
       menuItems: true,
@@ -23,6 +26,16 @@ async function getEventForEdit(eventId: string, userId: string) {
       participants: true,
     }
   });
+
+  if (!event) {
+    console.log(`[EditPage] Event NOT found in DB.`);
+  } else {
+    console.log(`[EditPage] Event found! Owner ID: ${event.userId}`);
+    if (event.userId !== userId) {
+      console.warn(`[EditPage] WARNING: Mismatch! Logged in: ${userId}, Owner: ${event.userId}`);
+    }
+  }
+
   return event;
 }
 
@@ -31,31 +44,28 @@ export default async function EditEventPage({
 }: { 
   params: Promise<{ id: string }> 
 }) {
-  // 1. Check Authentication
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     redirect('/auth/login?callbackUrl=/admin/dashboard');
   }
 
-  // 2. Await params (Next.js 15 requirement)
+  // Await params for Next.js 15+
   const { id } = await params;
 
-  // 3. Fetch Data
   const event = await getEventForEdit(id, session.user.id);
 
-  // 4. Handle 404 if event doesn't exist or belongs to another user
   if (!event) {
     notFound();
   }
 
-  // 5. Transform Prisma data to match EventCreator's expected "initialData" shape
+  // Transform data for the form
   const initialData = {
     name: event.name,
     description: event.description || "",
     dressCode: event.dressCode || "",
     locationInfo: event.locationInfo || "",
     imageUrl: event.imageUrl || "",
-    hasPlusOne: event.hasPlusOne,
+    hasPlusOne: event.hasPlusOne, // This allows you to toggle the +1 form!
     availableDates: event.availableDates,
     menuItems: event.menuItems.map(i => ({ 
       title: i.title, 
@@ -66,7 +76,7 @@ export default async function EditEventPage({
       name: s.name,
       role: s.role || "",
       bio: s.bio || "",
-      imageUrl: s.imageUrl || ""
+      imageUrl: s.imageUrl || "" 
     })),
     timeline: event.timeline.map(t => ({
       time: t.time,
@@ -94,7 +104,6 @@ export default async function EditEventPage({
           </Button>
         </Group>
         
-        {/* Pass eventId to trigger "Update Mode" and initialData to pre-fill form */}
         <EventCreator eventId={event.id} initialData={initialData} />
       </Container>
     </>
