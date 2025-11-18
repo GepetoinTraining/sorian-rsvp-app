@@ -6,18 +6,16 @@ import {
   Title, 
   Text, 
   SimpleGrid, 
-  Card, 
-  Image, 
   Button, 
   Group, 
-  Badge, 
-  Stack 
+  Stack,
 } from '@mantine/core';
 import Link from 'next/link';
-import { IconMapPin } from '@tabler/icons-react';
+import { EventCardLink } from '@/app/components/EventCardLink'; // <<-- IMPORT NEW COMPONENT
+import { Event } from '@prisma/client';
 
 // Fetch data on the server
-async function getEvents() {
+async function getEvents(): Promise<Event[]> {
   return await prisma.event.findMany({
     orderBy: { createdAt: 'desc' }
   });
@@ -53,63 +51,7 @@ export default async function HomePage() {
           {/* Events Grid */}
           <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="lg">
             {events.map((event) => (
-              <Card 
-                key={event.id} 
-                shadow="sm" 
-                padding="lg" 
-                radius="md" 
-                withBorder
-                component={Link}
-                href={`/event/${event.id}`}
-                className="hover:shadow-md transition-shadow duration-200"
-                style={{ display: 'flex', flexDirection: 'column' }}
-              >
-                <Card.Section>
-                  <Image
-                    src={event.imageUrl || "https://placehold.co/600x400?text=Sorian"}
-                    height={200}
-                    alt={event.name}
-                    fit="cover"
-                  />
-                </Card.Section>
-
-                <Stack gap="xs" mt="md" mb="xs" style={{ flexGrow: 1 }}>
-                  <Group justify="space-between">
-                    <Badge color="red" variant="light">
-                      Convite Aberto
-                    </Badge>
-                  </Group>
-                  
-                  <Title order={3} fz="xl" fw={600} lineClamp={2} style={{ fontFamily: 'var(--font-playfair), serif' }}>
-                    {event.name}
-                  </Title>
-                  
-                  <Text size="sm" c="dimmed" lineClamp={3}>
-                    {event.description || "Sem descrição disponível."}
-                  </Text>
-                </Stack>
-
-                <Group gap="sm" mt="xl">
-                  <Stack gap={4}>
-                     {event.locationInfo && (
-                        <Group gap={6}>
-                          <IconMapPin size={16} color="gray" />
-                          <Text size="xs" c="dimmed" lineClamp={1}>{event.locationInfo}</Text>
-                        </Group>
-                     )}
-                  </Stack>
-                </Group>
-
-                <Button 
-                  color="red" 
-                  variant="filled"
-                  fullWidth 
-                  mt="md" 
-                  radius="md"
-                >
-                  Ver Detalhes & RSVP
-                </Button>
-              </Card>
+              <EventCardLink key={event.id} event={event} /> // <<-- USE CLIENT COMPONENT
             ))}
           </SimpleGrid>
           
