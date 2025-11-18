@@ -6,6 +6,8 @@ import './globals.css';
 import { ColorSchemeScript, MantineProvider, createTheme } from '@mantine/core';
 import Providers from './providers';
 import type { Metadata } from 'next';
+import { getServerSession } from 'next-auth'; // Import this
+import { authOptions } from '@/app/lib/auth'; // Import your auth options
 
 const inter = Inter({ subsets: ['latin'] });
 const playfair = Playfair_Display({ 
@@ -24,7 +26,10 @@ const theme = createTheme({
   primaryColor: 'red',
 });
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // Fetch session on the server
+  const session = await getServerSession(authOptions);
+
   return (
     <html lang="pt-br">
       <head>
@@ -32,7 +37,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="viewport" content="minimum-scale=1, initial-scale=1, width=device-width" />
       </head>
       <body className={inter.className}>
-        <Providers>
+        {/* Pass the session prop here */}
+        <Providers session={session}>
           <MantineProvider theme={theme}>
             {children}
           </MantineProvider>
