@@ -24,13 +24,13 @@ export function EventCardLink({ event }: EventCardLinkProps) {
     const href = `/event/${event.id}`;
 
     return (
-        // The Card component now becomes a Link safely in the client boundary
+        // This Client Component safely uses Link as a component prop
         <Card 
             shadow="sm" 
             padding="lg" 
             radius="md" 
             withBorder
-            component={Link} 
+            component={Link} // This line MUST be inside a 'use client' file
             href={href}
             className="hover:shadow-md transition-shadow duration-200"
             style={{ display: 'flex', flexDirection: 'column' }}
