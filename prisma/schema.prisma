@@ -76,8 +76,6 @@ model VerificationToken {
 
 model Event {
   id              String   @id @default(cuid())
-  
-  // Owner Link (Only the admin user can manage this)
   userId          String
   user            User     @relation(fields: [userId], references: [id])
 
@@ -85,10 +83,12 @@ model Event {
   description     String?  @db.Text
   dressCode       String?  @db.Text
   locationInfo    String?  @db.Text
-  imageUrl        String?  // URL for the cover image
+  imageUrl        String?  // Main event cover image
   
-  // Stores specific dates, e.g. ["2025-11-27", "2025-11-28"]
   availableDates  String[]
+  
+  // Relation to Menu Items
+  menuItems       MenuItem[] 
   
   rsvps           RSVP[]
   
@@ -97,6 +97,17 @@ model Event {
   @@map("events")
 }
 
+model MenuItem {
+  id          String   @id @default(cuid())
+  eventId     String
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  
+  title       String   @db.Text
+  description String?  @db.Text
+  imageUrl    String?  @db.Text
+  
+  @@map("menu_items")
+}
 model RSVP {
   id            String   @id @default(cuid())
   

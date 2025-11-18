@@ -1,4 +1,3 @@
-// app/admin/actions.ts
 'use server';
 
 import { prisma } from '@/app/lib/prisma';
@@ -8,43 +7,41 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 
-// 1. Validation Schema
+// Schema with Menu Items
 const eventSchema = z.object({
   name: z.string().min(3, "O nome deve ter pelo menos 3 caracteres"),
   description: z.string().optional(),
   dressCode: z.string().optional(),
   locationInfo: z.string().optional(),
-  imageUrl: z.string().url("URL da imagem inválida").optional().or(z.literal('')),
+  imageUrl: z.string().optional(),
   availableDates: z.array(z.string()).min(1, "Selecione pelo menos uma data"),
+  menuItems: z.array(z.object({
+    title: z.string(),
+    description: z.string().optional(),
+    imageUrl: z.string().optional(),
+  })).optional(),
 });
 
 export async function createEvent(prevState: any, formData: FormData) {
-  // 2. Check Auth
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return { success: false, message: "Você precisa estar logado." };
   }
 
-  // 3. Extract Data
-  // We expect the form to send a JSON string for complex data handling, 
-  // or we extract standard fields. Since we built a JSON/Form hybrid, 
-  // let's assume we submit the raw JSON string for simplicity, or parse standard fields.
-  // Here we will extract standard fields assuming the Client component unpacks them,
-  // OR we handle the "json_payload" approach.
-  
+  // Parse JSON fields from the hidden inputs
+  const availableDatesRaw = formData.get('availableDates') as string;
+  const menuItemsRaw = formData.get('menuItems') as string;
+
   const rawData = {
     name: formData.get('name') as string,
     description: formData.get('description') as string,
     dressCode: formData.get('dressCode') as string,
     locationInfo: formData.get('locationInfo') as string,
     imageUrl: formData.get('imageUrl') as string,
-    // Dates are tricky in FormData, we'll expect them as a JSON string or separate fields
-    availableDates: formData.get('availableDates') 
-      ? JSON.parse(formData.get('availableDates') as string) 
-      : [],
+    availableDates: availableDatesRaw ? JSON.parse(availableDatesRaw) : [],
+    menuItems: menuItemsRaw ? JSON.parse(menuItemsRaw) : [],
   };
 
-  // 4. Validate
   const result = eventSchema.safeParse(rawData);
 
   if (!result.success) {
@@ -56,11 +53,24 @@ export async function createEvent(prevState: any, formData: FormData) {
   }
 
   try {
-    // 5. Database Insert
-    const newEvent = await prisma.event.create({
+    // Create Event AND Menu Items in one transaction
+    await prisma.event.create({
       data: {
         userId: session.user.id,
-        ...result.data,
+        name: result.data.name,
+        description: result.data.description,
+        dressCode: result.data.dressCode,
+        locationInfo: result.data.locationInfo,
+        imageUrl: result.data.imageUrl,
+        availableDates: result.data.availableDates,
+        // Prisma nested write
+        menuItems: {
+          create: result.data.menuItems?.map(item => ({
+            title: item.title,
+            description: item.description || "",
+            imageUrl: item.imageUrl || "",
+          }))
+        }
       },
     });
 
@@ -70,6 +80,5 @@ export async function createEvent(prevState: any, formData: FormData) {
     return { success: false, message: "Erro ao criar evento no banco de dados." };
   }
 
-  // 6. Redirect on Success
-  redirect('/events');
+  redirect('/admin/dashboard');
 }
