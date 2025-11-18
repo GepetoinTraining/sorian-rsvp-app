@@ -1,4 +1,6 @@
 // app/page.tsx
+"use server"
+
 import { prisma } from '@/app/lib/prisma';
 import { Header } from '@/app/components/Header';
 import { 
