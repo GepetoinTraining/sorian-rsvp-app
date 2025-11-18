@@ -1,4 +1,6 @@
 // app/page.tsx
+'use client';
+
 import { Header } from '@/app/components/Header';
 import { Container, Title, Text, Button, Stack, Group } from '@mantine/core';
 import Link from 'next/link';
