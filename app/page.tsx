@@ -1,73 +1,49 @@
 // app/page.tsx
-import { prisma } from '@/app/lib/prisma';
 import { Header } from '@/app/components/Header';
-import { 
-  Container, 
-  Title, 
-  Text, 
-  SimpleGrid, 
-  Button, 
-  Group, 
-  Stack,
-} from '@mantine/core';
+import { Container, Title, Text, Button, Stack, Group } from '@mantine/core';
 import Link from 'next/link';
-import { EventCardLink } from '@/app/components/EventCardLink'; 
-import type { Event } from '@prisma/client'; // <-- THE FIX: Import type explicitly
+import { IconArrowRight } from '@tabler/icons-react';
 
-// Fetch data on the server
-async function getEvents(): Promise<Event[]> {
-  return await prisma.event.findMany({
-    orderBy: { createdAt: 'desc' }
-  });
-}
-
-export default async function HomePage() {
-  const events = await getEvents();
-
+export default function Home() {
   return (
     <>
       <Header />
-      
-      <main>
-        <Container size="lg" py="xl">
-          {/* Hero Section */}
-          <Stack align="center" gap="xs" my={50}>
-            <Title 
-              order={1} 
-              fz={{ base: 36, sm: 48 }} 
-              style={{ fontFamily: 'var(--font-playfair), serif' }}
-              c="gray.9"
-              ta="center"
-            >
-              Eventos Sorian
-            </Title>
-            <Text c="dimmed" size="lg" ta="center" maw={600}>
-              Experiências exclusivas de design e conforto. 
-              Selecione um evento para confirmar sua presença.
-            </Text>
-            <div style={{ width: 60, height: 4, backgroundColor: '#fa5252', marginTop: 20 }} />
-          </Stack>
+      <Container size="md" style={{ paddingTop: '6rem', paddingBottom: '6rem', minHeight: '80vh' }}>
+        <Stack gap="xl" align="center">
+          <Title
+            order={1}
+            ta="center"
+            style={{ fontSize: '3.5rem', lineHeight: 1.1, fontFamily: 'var(--font-playfair), serif' }}
+          >
+            Sorian-RSVP: Experiências de Design
+          </Title>
 
-          {/* Events Grid */}
-          <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="lg">
-            {events.map((event) => (
-              <EventCardLink key={event.id} event={event} /> 
-            ))}
-          </SimpleGrid>
-          
-          {/* Empty State */}
-          {events.length === 0 && (
-            <Container size="sm" py={80}>
-              <Text c="dimmed" ta="center" size="lg" mb="md">Nenhum evento encontrado.</Text>
-              <Group justify="center">
-                <Button component={Link} href="/auth/login" variant="subtle" color="gray">
-                  Acesso Administrativo
-                </Button>
-              </Group>
-            </Container>
-          )}
-        </Container>
-      </main>
+          <Text size="xl" c="dimmed" ta="center" maw={600}>
+            Sua porta de entrada para eventos exclusivos. 
+            Confirme sua presença ou gerencie seus convites.
+          </Text>
+
+          <Group mt="lg">
+            <Button
+              component={Link}
+              href="/events" // Link to the new event listing page
+              size="lg"
+              rightSection={<IconArrowRight size={16} />}
+              color="red"
+            >
+              Ver Eventos Abertos
+            </Button>
+            <Button
+              component={Link}
+              href="/auth/login"
+              size="lg"
+              variant="default"
+            >
+              Área Admin
+            </Button>
+          </Group>
+        </Stack>
+      </Container>
     </>
   );
 }
