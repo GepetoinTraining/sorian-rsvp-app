@@ -1,28 +1,41 @@
-// app/events/page.tsx
+// app/event/[id]/page.tsx
 import { prisma } from '@/app/lib/prisma';
+import { notFound } from 'next/navigation';
 import { Header } from '@/app/components/Header';
-import { 
-  Container, 
-  Title, 
-  Text, 
-  SimpleGrid, 
-  Button, 
-  Group, 
-  Stack,
-} from '@mantine/core';
-import Link from 'next/link';
-import { EventCardLink } from '@/app/components/EventCardLink'; 
-import type { Event } from '@prisma/client';
+import { EventHeader } from '@/app/components/EventHeader';
+import { EventDetails } from '@/app/components/EventDetails';
+import { ConceptualMenu } from '@/app/components/ConceptualMenu';
+import { Container, Stack, Text } from '@mantine/core';
+import RsvpForm from './RsvpForm';
 
-// Fetch data on the server
-async function getEvents(): Promise<Event[]> {
-  return await prisma.event.findMany({
-    orderBy: { createdAt: 'desc' }
+// Fetch specific event data
+async function getEvent(id: string) {
+  return await prisma.event.findUnique({
+    where: { id },
+    include: {
+      menuItems: true,
+      // Add other relations like speakers/timeline here if you create components for them
+    }
   });
 }
 
-export default async function EventsPage() {
-  const events = await getEvents();
+type Props = {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+};
+
+export default async function EventPage({ params, searchParams }: Props) {
+  const { id } = await params;
+  const { name } = await searchParams;
+
+  const event = await getEvent(id);
+
+  if (!event) {
+    return notFound();
+  }
+
+  // Handle guest name from QR code/URL parameter
+  const guestName = typeof name === 'string' ? name : '';
 
   return (
     <>
@@ -30,36 +43,34 @@ export default async function EventsPage() {
       
       <main>
         <Container size="lg" py="xl">
-          {/* Header for the Events List Page */}
-          <Stack align="center" gap="xs" my={50}>
-            <Title 
-              order={1} 
-              fz={{ base: 36, sm: 48 }} 
-              style={{ fontFamily: 'var(--font-playfair), serif' }}
-              c="gray.9"
-              ta="center"
-            >
-              Confirme Sua Presença
-            </Title>
-            <Text c="dimmed" size="lg" ta="center" maw={600}>
-              Experiências exclusivas de design e conforto.
-            </Text>
-            <div style={{ width: 60, height: 4, backgroundColor: '#fa5252', marginTop: 20 }} />
-          </Stack>
+          <Stack gap="xl">
+            {/* 1. Title & Description */}
+            <EventHeader 
+              title={event.name} 
+              description={event.description || ''} 
+            />
+            
+            {/* 2. Key Details (Date, Location, Dress Code) */}
+            <EventDetails 
+              dressCode={event.dressCode}
+              locationInfo={event.locationInfo}
+            />
+            
+            {/* 3. Menu (If items exist) */}
+            {event.menuItems.length > 0 && (
+              <ConceptualMenu menu={event.menuItems} />
+            )}
 
-          {/* Events Grid */}
-          <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="lg">
-            {events.map((event) => (
-              <EventCardLink key={event.id} event={event} /> 
-            ))}
-          </SimpleGrid>
-          
-          {/* Empty State */}
-          {events.length === 0 && (
-            <Container size="sm" py={80}>
-              <Text c="dimmed" ta="center" size="lg" mb="md">Nenhum evento encontrado no momento.</Text>
-            </Container>
-          )}
+            {/* 4. RSVP Form */}
+            <div id="rsvp-section">
+               <RsvpForm 
+                 eventId={event.id} 
+                 availableDates={event.availableDates}
+                 hasPlusOne={event.hasPlusOne}
+                 initialName={guestName}
+               />
+            </div>
+          </Stack>
         </Container>
       </main>
     </>
