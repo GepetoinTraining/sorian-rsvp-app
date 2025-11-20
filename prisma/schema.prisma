@@ -113,6 +113,9 @@ model MenuItem {
   description String?  @db.Text
   imageUrl    String?  @db.Text
   
+  // Add this new optional field
+  section     String?  @db.Text 
+
   @@map("menu_items")
 }
 

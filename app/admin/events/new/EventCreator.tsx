@@ -1,8 +1,9 @@
+// app/admin/events/new/EventCreator.tsx
 'use client';
 
 import { useState } from 'react';
 import { useActionState } from 'react';
-import { createEvent, updateEvent } from '@/app/admin/actions'; // Import updateEvent
+import { createEvent, updateEvent } from '@/app/admin/actions'; 
 import {
   TextInput,
   Textarea,
@@ -19,7 +20,6 @@ import {
   Text,
   Card,
   Grid,
-  NumberInput,
   Switch,
   Divider,
   rem,
@@ -36,8 +36,7 @@ import {
 } from '@tabler/icons-react';
 
 // --- TYPES ---
-// (Keep types defined as before)
-interface MenuItem { title: string; description: string; imageUrl: string; }
+interface MenuItem { title: string; description: string; imageUrl: string; section?: string; } // Updated interface
 interface Speaker { name: string; role: string; bio: string; imageUrl: string; }
 interface TimelineItem { time: string; title: string; description: string; order: number; }
 interface Participant { name: string; }
@@ -68,15 +67,13 @@ interface EventCreatorProps {
 }
 
 export function EventCreator({ initialData, eventId }: EventCreatorProps) {
-  // Use initialData if provided (Edit Mode), otherwise default (Create Mode)
   const [eventData, setEventData] = useState(initialData || INITIAL_EVENT_STATE);
   const [jsonString, setJsonString] = useState(JSON.stringify(eventData, null, 2));
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [activeMenuItemIndex, setActiveMenuItemIndex] = useState<number | null>(null);
   const [bulkNames, setBulkNames] = useState("");
 
-  // DYNAMIC ACTION BINDING
-  // If eventId exists, bind updateEvent with the ID. Otherwise use createEvent.
   const actionToUse = eventId ? updateEvent.bind(null, eventId) : createEvent;
 
   const [state, formAction, isPending] = useActionState<ActionState, FormData>(
@@ -228,7 +225,7 @@ export function EventCreator({ initialData, eventId }: EventCreatorProps) {
                 <Paper withBorder h={500} style={{ display: 'flex', overflow: 'hidden' }}>
                   <Box w={250} style={{ borderRight: '1px solid var(--mantine-color-gray-3)', display: 'flex', flexDirection: 'column' }}>
                      <Box p="md" style={{ borderBottom: '1px solid var(--mantine-color-gray-3)' }}>
-                        <Button fullWidth variant="light" leftSection={<IconPlus size={16} />} onClick={() => addItem('menuItems', { title: 'Novo Prato', description: '', imageUrl: '' })}>Novo Item</Button>
+                        <Button fullWidth variant="light" leftSection={<IconPlus size={16} />} onClick={() => addItem('menuItems', { title: 'Novo Prato', description: '', imageUrl: '', section: '' })}>Novo Item</Button>
                      </Box>
                      <ScrollArea style={{ flexGrow: 1 }}>
                         {eventData.menuItems.map((item, idx) => (
@@ -242,6 +239,14 @@ export function EventCreator({ initialData, eventId }: EventCreatorProps) {
                         <Group justify="space-between"><Title order={4}>Editar Item</Title><Button color="red" variant="subtle" size="xs" onClick={() => removeItem('menuItems', activeMenuItemIndex)}>Remover</Button></Group>
                         <Paper withBorder p="md" shadow="sm" radius="md">
                           <Stack gap="md">
+                             {/* ADDED SECTION INPUT HERE */}
+                            <TextInput 
+                              label="Seção (Opcional)" 
+                              placeholder="Ex: Entradas, Principal..." 
+                              value={eventData.menuItems[activeMenuItemIndex].section || ''} 
+                              onChange={(e) => updateItem('menuItems', activeMenuItemIndex, 'section', e.target.value)} 
+                            />
+                            
                             <TextInput label="Título" value={eventData.menuItems[activeMenuItemIndex].title} onChange={(e) => updateItem('menuItems', activeMenuItemIndex, 'title', e.target.value)} />
                             <Textarea label="Descrição" autosize minRows={4} value={eventData.menuItems[activeMenuItemIndex].description} onChange={(e) => updateItem('menuItems', activeMenuItemIndex, 'description', e.target.value)} />
                             <ImageUpload label="Imagem" value={eventData.menuItems[activeMenuItemIndex].imageUrl} onChange={(url) => updateItem('menuItems', activeMenuItemIndex, 'imageUrl', url)} />

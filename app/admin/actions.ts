@@ -1,3 +1,4 @@
+// app/admin/actions.ts
 'use server';
 
 import { prisma } from '@/app/lib/prisma';
@@ -20,6 +21,7 @@ const eventSchema = z.object({
     title: z.string(),
     description: z.string().optional(),
     imageUrl: z.string().optional(),
+    section: z.string().optional(), // Added section here
   })).optional(),
   speakers: z.array(z.object({
     name: z.string(),
