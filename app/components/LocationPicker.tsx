@@ -79,7 +79,12 @@ export function LocationPicker({ value, onChange }: LocationPickerProps) {
             <LocationMarker position={markerPosition} setPosition={handleMapClick} />
           </MapContainer>
       </Box>
-      {value.lat && <Text size="xs" c="dimmed">Coord: {value.lat.toFixed(4)}, {value.lng.toFixed(4)}</Text>}
+      {/* FIX: Check both lat and lng are not null */}
+      {value.lat !== null && value.lng !== null && (
+        <Text size="xs" c="dimmed">
+          Coord: {value.lat.toFixed(4)}, {value.lng.toFixed(4)}
+        </Text>
+      )}
     </Stack>
   );
 }
