@@ -6,15 +6,12 @@ import { EventCreator } from '@/app/admin/events/new/EventCreator';
 import { Container, Group } from '@mantine/core';
 import { IconArrowLeft } from '@tabler/icons-react';
 import { Header } from '@/app/components/Header';
-import { BackButton } from '@/app/components/BackButton'; // Import the new client component
+import { BackButton } from '@/app/components/BackButton'; 
 
 async function getEventForEdit(eventId: string, userId: string) {
-  // console.log(`[EditPage] Searching for Event ID: ${eventId}`);
-
   const event = await prisma.event.findUnique({
     where: { 
       id: eventId,
-      // userId: userId 
     },
     include: {
       menuItems: true,
@@ -50,16 +47,20 @@ export default async function EditEventPage({
     name: event.name,
     description: event.description || "",
     dressCode: event.dressCode || "",
-    address: event.address || "",  // Verify 'address' vs 'location' in schema.prisma
-    latitude: event.latitude || null,
-    longitude: event.longitude || null,
+    // FIX: Map to new schema fields (locationAddress, locationLat, locationLng)
+    address: event.locationAddress || "", 
+    latitude: event.locationLat || null,
+    longitude: event.locationLng || null,
+    
     imageUrl: event.imageUrl || "",
     hasPlusOne: event.hasPlusOne,
     availableDates: event.availableDates,
     menuItems: event.menuItems.map(i => ({ 
       title: i.title, 
       description: i.description || "", 
-      imageUrl: i.imageUrl || "" 
+      imageUrl: i.imageUrl || "",
+      // FIX: Include sectionId so the form knows which section this item belongs to
+      sectionTempId: i.sectionId || null
     })),
     speakers: event.speakers.map(s => ({
       name: s.name,
@@ -83,7 +84,6 @@ export default async function EditEventPage({
       <Header />
       <Container size="lg" py="xl">
         <Group mb="lg">
-          {/* FIX: Used Client Component BackButton instead of passing Link directly */}
           <BackButton 
             href="/admin/dashboard" 
             variant="subtle" 
