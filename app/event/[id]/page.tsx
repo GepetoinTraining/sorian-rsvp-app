@@ -8,13 +8,12 @@ import { ConceptualMenu } from '@/app/components/ConceptualMenu';
 import { Container, Stack } from '@mantine/core';
 import RsvpForm from './RsvpForm';
 
-// Fetch specific event data
+// Fetch specific event data with all relations
 async function getEvent(id: string) {
   return await prisma.event.findUnique({
     where: { id },
     include: {
-      menuItems: true,
-      // We need menuSections to properly display the conceptual menu
+      // FIX: Fetch menuSections with their items
       menuSections: {
         include: {
           items: true
@@ -61,11 +60,11 @@ export default async function EventPage({ params, searchParams }: Props) {
             {/* 2. Key Details (Date, Location, Dress Code) */}
             <EventDetails 
               dressCode={event.dressCode}
-              // FIX: Map locationAddress to locationInfo prop
+              // FIX: Use new locationAddress field
               locationInfo={event.locationAddress}
             />
             
-            {/* 3. Menu (If sections exist) */}
+            {/* 3. Menu (Using Sections) */}
             {event.menuSections.length > 0 && (
               <ConceptualMenu menuSections={event.menuSections} />
             )}

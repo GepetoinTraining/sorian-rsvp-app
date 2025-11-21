@@ -39,12 +39,12 @@ export default async function ManageEventPage({ params }: { params: Promise<{ id
   }
 
   // Calculate Stats
-  // FIX: Updated property from 'bringingGuest' to 'hasPlusOne'
+  // FIX: Use hasPlusOne
   const totalGuests = event.rsvps.reduce((acc, rsvp) => {
     return acc + 1 + (rsvp.hasPlusOne ? 1 : 0);
   }, 0);
 
-  // Prepare data: Format dates to strings on the SERVER
+  // Prepare data
   const formattedRsvps = event.rsvps.map(rsvp => ({
     ...rsvp,
     confirmedAtFormatted: rsvp.createdAt.toLocaleString('pt-BR', {
@@ -61,7 +61,6 @@ export default async function ManageEventPage({ params }: { params: Promise<{ id
     <>
       <Header />
       <Container size="lg" py="xl">
-        
         <Group mb="lg">
           <BackButton 
             href="/admin/dashboard" 

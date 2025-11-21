@@ -5,10 +5,10 @@ import { Table, Text, Badge, Group, Stack } from '@mantine/core';
 // FIX: Updated interface to match new Prisma Schema
 interface RsvpItem {
   id: string;
-  participantName: string; // Was guestName
-  hasPlusOne: boolean;     // Was bringingGuest
+  participantName: string; 
+  hasPlusOne: boolean;     
   plusOneName: string | null;
-  selectedDate: string | null; // Was selectedDates string[]
+  selectedDate: string | null; 
   confirmedAtFormatted: string; 
 }
 
@@ -16,7 +16,6 @@ interface RsvpTableProps {
   rsvps: RsvpItem[];
 }
 
-// Helper to format the date strings (YYYY-MM-DD)
 const formatSelectedDate = (dateStr: string) => {
   const parts = dateStr.trim().split('-');
   if (parts.length === 3) {
@@ -46,18 +45,16 @@ export function RsvpTable({ rsvps }: RsvpTableProps) {
       </Table.Thead>
       <Table.Tbody>
         {rsvps.map((rsvp) => {
-          // FIX: Split the comma-separated string back into an array for display
+          // FIX: Split comma-separated string
           const dateList = rsvp.selectedDate ? rsvp.selectedDate.split(',') : [];
 
           return (
             <Table.Tr key={rsvp.id}>
               <Table.Td>
-                {/* FIX: Use participantName */}
                 <Text fw={600} c="gray.9">{rsvp.participantName}</Text>
               </Table.Td>
               
               <Table.Td>
-                {/* FIX: Use hasPlusOne */}
                 {rsvp.hasPlusOne ? (
                   <Group gap="xs">
                     <Badge color="green" size="sm" variant="light">Sim</Badge>
