@@ -164,7 +164,7 @@ export function EventCreator({ initialData, eventId }: EventCreatorProps) {
 
     // If removing a section, unset the active index
     if (field === 'menuSections') {
-         // FIX: Cast itemToRemove to MenuSectionState to access tempId safely
+         // Cast itemToRemove to MenuSectionState to access tempId safely
          const sectionToRemove = itemToRemove as MenuSectionState;
          
          if(index === activeSectionIndex) setActiveSectionIndex(null);
@@ -304,7 +304,8 @@ export function EventCreator({ initialData, eventId }: EventCreatorProps) {
                      </ScrollArea>
                   </Box>
                   {/* Detail View */}
-                  <Box style={{ flexGrow: 1 }} p="lg" bg="gray.0" style={{overflowY:'auto'}}>
+                  {/* FIX: Merged duplicate style prop here */}
+                  <Box p="lg" bg="gray.0" style={{ flexGrow: 1, overflowY: 'auto' }}>
                     {activeSectionIndex !== null && eventData.menuSections[activeSectionIndex] ? (
                       <Stack gap="md">
                         <Group justify="space-between"><Title order={4}>Editar Seção</Title><Button color="red" variant="subtle" size="xs" onClick={() => removeItem('menuSections', activeSectionIndex)}>Remover</Button></Group>
@@ -339,7 +340,8 @@ export function EventCreator({ initialData, eventId }: EventCreatorProps) {
                      </ScrollArea>
                   </Box>
                   {/* Detail View */}
-                  <Box style={{ flexGrow: 1 }} p="lg" bg="gray.0" style={{overflowY:'auto'}}>
+                  {/* FIX: Merged duplicate style prop here as well */}
+                  <Box p="lg" bg="gray.0" style={{ flexGrow: 1, overflowY: 'auto' }}>
                     {activeMenuItemIndex !== null && eventData.menuItems[activeMenuItemIndex] ? (
                       <Stack gap="md">
                         <Group justify="space-between"><Title order={4}>Editar Prato</Title><Button color="red" variant="subtle" size="xs" onClick={() => removeItem('menuItems', activeMenuItemIndex)}>Remover</Button></Group>
