@@ -5,7 +5,7 @@ import { Header } from '@/app/components/Header';
 import { EventHeader } from '@/app/components/EventHeader';
 import { EventDetails } from '@/app/components/EventDetails';
 import { ConceptualMenu } from '@/app/components/ConceptualMenu';
-import { Container, Stack, Text } from '@mantine/core';
+import { Container, Stack } from '@mantine/core';
 import RsvpForm from './RsvpForm';
 
 // Fetch specific event data
@@ -14,7 +14,15 @@ async function getEvent(id: string) {
     where: { id },
     include: {
       menuItems: true,
-      // Add other relations like speakers/timeline here if you create components for them
+      // We need menuSections to properly display the conceptual menu
+      menuSections: {
+        include: {
+          items: true
+        },
+        orderBy: {
+          order: 'asc'
+        }
+      }
     }
   });
 }
@@ -53,12 +61,13 @@ export default async function EventPage({ params, searchParams }: Props) {
             {/* 2. Key Details (Date, Location, Dress Code) */}
             <EventDetails 
               dressCode={event.dressCode}
-              locationInfo={event.locationInfo}
+              // FIX: Map locationAddress to locationInfo prop
+              locationInfo={event.locationAddress}
             />
             
-            {/* 3. Menu (If items exist) */}
-            {event.menuItems.length > 0 && (
-              <ConceptualMenu menu={event.menuItems} />
+            {/* 3. Menu (If sections exist) */}
+            {event.menuSections.length > 0 && (
+              <ConceptualMenu menuSections={event.menuSections} />
             )}
 
             {/* 4. RSVP Form */}

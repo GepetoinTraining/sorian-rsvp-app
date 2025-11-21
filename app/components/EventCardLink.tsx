@@ -62,10 +62,11 @@ export function EventCardLink({ event }: EventCardLinkProps) {
 
             <Group gap="sm" mt="xl">
                 <Stack gap={4}>
-                    {event.locationInfo && (
+                    {/* FIX: Use locationAddress instead of locationInfo */}
+                    {event.locationAddress && (
                         <Group gap={6}>
                           <IconMapPin size={16} color="gray" />
-                          <Text size="xs" c="dimmed" lineClamp={1}>{event.locationInfo}</Text>
+                          <Text size="xs" c="dimmed" lineClamp={1}>{event.locationAddress}</Text>
                         </Group>
                     )}
                 </Stack>
