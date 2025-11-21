@@ -6,20 +6,17 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  // This will read from Vercel's environment variables later
   url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
-// ===============================================
-// === 1. NEXT-AUTH MODELS (Standard Setup)   ===
-// ===============================================
-
+// --- NextAuth Models ---
 model Account {
   id                 String  @id @default(cuid())
-  userId             String
+  userId             String  @map("user_id")
   type               String
   provider           String
-  providerAccountId  String
+  providerAccountId  String  @map("provider_account_id")
   refresh_token      String? @db.Text
   access_token       String? @db.Text
   expires_at         Int?
@@ -27,81 +24,98 @@ model Account {
   scope              String?
   id_token           String? @db.Text
   session_state      String?
-
+ 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+ 
   @@unique([provider, providerAccountId])
   @@map("accounts")
 }
-
+ 
 model Session {
   id           String   @id @default(cuid())
-  sessionToken String   @unique
-  userId       String
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id")
   expires      DateTime
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+ 
   @@map("sessions")
 }
-
+ 
 model User {
   id            String    @id @default(cuid())
   name          String?
   email         String?   @unique
-  emailVerified DateTime?
+  emailVerified DateTime? @map("email_verified")
   image         String?
-  passwordHash  String?   // Essential for Email/Password login
-  
   accounts      Account[]
   sessions      Session[]
   
   // Sorian Relations
-  events        Event[]
+  events        Event[] // This is the opposite relation field that was missing
 
   @@map("users")
 }
-
+ 
 model VerificationToken {
   identifier String
-  token      String   @unique
+  token      String
   expires    DateTime
-
+ 
   @@unique([identifier, token])
   @@map("verification_tokens")
 }
 
-// ===============================================
-// === 2. SORIAN APP MODELS (Events & RSVPs)  ===
-// ===============================================
+// --- Sorian App Models ---
 
 model Event {
-  id              String   @id @default(cuid())
-  userId          String
-  user            User     @relation(fields: [userId], references: [id])
-
-  name            String   @db.Text
-  description     String?  @db.Text
-  dressCode       String?  @db.Text
-  locationInfo    String?  @db.Text
-  imageUrl        String?  
-
-  availableDates  String[]
-
-// New Toggle
-  hasPlusOne      Boolean  @default(false)
-
-  // Existing Relations
-  menuItems       MenuItem[] 
-  speakers        Speaker[]
-  timeline        TimelineItem[]
-  rsvps           RSVP[]
+  id          String   @id @default(cuid())
   
-  // New Relation
-  participants    Participant[]
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  name        String   @db.Text
+  description String?  @db.Text
+  dressCode   String?  @db.Text
+
+  // Location Info
+  locationAddress String? @db.Text
+  locationLat     Float? // New field for latitude
+  locationLng     Float? // New field for longitude
+
+  imageUrl    String?  @db.Text
+  hasPlusOne  Boolean  @default(false)
+  
+  // This would be better as a separate model or JSON type, but array of strings works for now
+  availableDates String[]
+
+  // Relations
+  menuSections MenuSection[] // New relation to sections
+  menuItems    MenuItem[] // Direct relation to items (for easier fetching)
+  speakers     Speaker[]
+  timeline     TimelineItem[]
+  participants Participant[]
+  rsvps        RSVP[] // This is the opposite relation field that was missing
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
   @@map("events")
+}
+
+// NEW MODEL
+model MenuSection {
+  id        String   @id @default(cuid())
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  
+  title     String   @db.Text
+  imageUrl  String?  @db.Text
+  order     Int      @default(0) // To keep them ordered in the UI
+
+  // Relation to items
+  items     MenuItem[]
+
+  @@map("menu_sections")
 }
 
 model MenuItem {
@@ -109,13 +123,14 @@ model MenuItem {
   eventId     String
   event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
   
+  // New optional relation field
+  sectionId   String?
+  section     MenuSection? @relation(fields: [sectionId], references: [id])
+
   title       String   @db.Text
   description String?  @db.Text
   imageUrl    String?  @db.Text
   
-  // Add this new optional field
-  section     String?  @db.Text 
-
   @@map("menu_items")
 }
 
@@ -123,9 +138,9 @@ model Speaker {
   id          String   @id @default(cuid())
   eventId     String
   event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
-
-  name        String
-  role        String?  // e.g. "Keynote", "Host"
+  
+  name        String   @db.Text
+  role        String?  @db.Text
   bio         String?  @db.Text
   imageUrl    String?  @db.Text
 
@@ -136,38 +151,41 @@ model TimelineItem {
   id          String   @id @default(cuid())
   eventId     String
   event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
-
-  time        String   // e.g. "19:00"
-  title       String
+  
+  time        String   // e.g., "19:00"
+  title       String   @db.Text
   description String?  @db.Text
   order       Int      @default(0)
 
   @@map("timeline_items")
 }
 
-model RSVP {
-  id            String   @id @default(cuid())
-  
-  eventId       String
-  event         Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  
-  guestName     String   @db.Text
-  bringingGuest Boolean  @default(false)
-  plusOneName   String?  @db.Text
-  
-  // Which dates did they select?
-  selectedDates String[]
-  
-  createdAt     DateTime @default(now())
-  @@map("rsvps")
-}
-
 model Participant {
   id          String   @id @default(cuid())
   eventId     String
   event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
-
-  name        String   @db.Text
   
+  name        String   @db.Text
+  // Could add email, status (invited, etc.) here later
+
   @@map("participants")
+}
+
+model RSVP {
+  id          String   @id @default(cuid())
+  eventId     String
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  
+  participantName String   @db.Text
+  selectedDate    String?  // Optional, if multiple dates
+  
+  hasPlusOne      Boolean  @default(false)
+  plusOneName     String?  @db.Text
+
+  dietaryRestrictions String? @db.Text
+  message             String? @db.Text
+
+  createdAt   DateTime @default(now())
+
+  @@map("rsvps")
 }

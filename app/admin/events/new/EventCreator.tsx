@@ -5,38 +5,24 @@ import { useState } from 'react';
 import { useActionState } from 'react';
 import { createEvent, updateEvent } from '@/app/admin/actions'; 
 import {
-  TextInput,
-  Textarea,
-  Button,
-  Group,
-  Paper,
-  Title,
-  Stack,
-  Tabs,
-  JsonInput,
-  Alert,
-  LoadingOverlay,
-  ActionIcon,
-  Text,
-  Card,
-  Grid,
-  Switch,
-  Divider,
-  rem,
-  NavLink,
-  Box,
-  ScrollArea
+  TextInput, Textarea, Button, Group, Paper, Title, Stack, Tabs, JsonInput, Alert, LoadingOverlay, ActionIcon, Text, Card, Grid, Switch, Divider, rem, NavLink, Box, ScrollArea, Select, NumberInput
 } from '@mantine/core';
 import { ImageUpload } from '@/app/components/ImageUpload';
 import { DateSelector } from '@/app/components/DateSelector';
+// Import new map component
+import { LocationPicker } from '@/app/components/LocationPicker';
 import { InvitationGenerator } from '@/app/components/InvitationGenerator';
 import { 
   IconCode, IconForms, IconAlertCircle, IconPlus, IconTrash, 
-  IconClock, IconUser, IconToolsKitchen2, IconInfoCircle, IconSettings, IconUsersGroup, IconChevronRight
+  IconClock, IconUser, IconToolsKitchen2, IconInfoCircle, IconSettings, IconUsersGroup, IconChevronRight, IconLayoutList
 } from '@tabler/icons-react';
 
-// --- TYPES ---
-interface MenuItem { title: string; description: string; imageUrl: string; section?: string; } // Updated interface
+// --- UPDATED TYPES ---
+// We use 'tempId' for client-side management before saving to DB
+interface MenuSectionState { tempId: string; title: string; imageUrl: string; order: number; }
+// Items now link to the section's tempId
+interface MenuItemState { title: string; description: string; imageUrl: string; sectionTempId?: string | null; }
+
 interface Speaker { name: string; role: string; bio: string; imageUrl: string; }
 interface TimelineItem { time: string; title: string; description: string; order: number; }
 interface Participant { name: string; }
@@ -47,30 +33,69 @@ interface ActionState {
   errors?: { [key: string]: string[] | undefined; };
 }
 
+// Helper to generate temporary client-side IDs
+const generateTempId = () => `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
 const INITIAL_EVENT_STATE = {
   name: "",
   description: "",
   dressCode: "",
-  locationInfo: "",
+  // Updated Location State
+  location: { address: "", lat: null as number | null, lng: null as number | null },
   imageUrl: "",
   hasPlusOne: false,
   availableDates: [] as string[],
-  menuItems: [] as MenuItem[],
+  // New Sections Array
+  menuSections: [] as MenuSectionState[],
+  menuItems: [] as MenuItemState[],
   speakers: [] as Speaker[],
   timeline: [] as TimelineItem[],
   participants: [] as Participant[],
 };
 
 interface EventCreatorProps {
-  initialData?: typeof INITIAL_EVENT_STATE;
+    // We need to map incoming DB data to our internal state structure if editing
+  initialData?: any; 
   eventId?: string;
 }
 
 export function EventCreator({ initialData, eventId }: EventCreatorProps) {
-  const [eventData, setEventData] = useState(initialData || INITIAL_EVENT_STATE);
+    // --- DATA TRANSFORMATION FOR EDIT MODE ---
+    // If editing, we need to convert DB IDs to tempIDs for the form state to work consistently
+    let startingState = INITIAL_EVENT_STATE;
+    if (initialData && eventId) {
+        startingState = {
+            ...initialData,
+            location: {
+                address: initialData.locationAddress || "",
+                lat: initialData.locationLat || null,
+                lng: initialData.locationLng || null
+            },
+            // Map DB sections to state sections with tempId = dbId
+            menuSections: initialData.menuSections.map((s: any) => ({
+                tempId: s.id, 
+                title: s.title,
+                imageUrl: s.imageUrl || "",
+                order: s.order
+            })),
+            // Map DB items, ensuring sectionTempId matches the section's ID
+            menuItems: initialData.menuItems.map((i: any) => ({
+                title: i.title,
+                description: i.description || "",
+                imageUrl: i.imageUrl || "",
+                sectionTempId: i.sectionId || null 
+            }))
+        };
+    }
+
+
+  const [eventData, setEventData] = useState(startingState);
   const [jsonString, setJsonString] = useState(JSON.stringify(eventData, null, 2));
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [jsonError, setJsonError] = useState<string | null>(null);
+  
+  // Separate active indexes for sections and plates tabs
+  const [activeSectionIndex, setActiveSectionIndex] = useState<number | null>(null);
   const [activeMenuItemIndex, setActiveMenuItemIndex] = useState<number | null>(null);
   const [bulkNames, setBulkNames] = useState("");
 
@@ -82,14 +107,18 @@ export function EventCreator({ initialData, eventId }: EventCreatorProps) {
   );
 
   // --- SYNC HELPERS ---
-  const updateState = (newData: typeof INITIAL_EVENT_STATE) => {
+  const updateState = (newData: typeof startingState) => {
     setEventData(newData);
     setJsonString(JSON.stringify(newData, null, 2));
   };
 
-  const handleFieldChange = (field: keyof typeof INITIAL_EVENT_STATE, value: any) => {
+  const handleFieldChange = (field: keyof typeof startingState, value: any) => {
     updateState({ ...eventData, [field]: value });
   };
+  
+  const handleLocationChange = (newLocation: typeof eventData.location) => {
+      handleFieldChange('location', newLocation);
+  }
 
   const handleJsonChange = (value: string) => {
     setJsonString(value);
@@ -103,21 +132,45 @@ export function EventCreator({ initialData, eventId }: EventCreatorProps) {
   };
 
   // --- ITEM HELPERS ---
-  const addItem = (field: 'menuItems' | 'speakers' | 'timeline' | 'participants', item: any) => {
-    const newArr = [...eventData[field], item];
-    handleFieldChange(field, newArr);
-    if (field === 'menuItems') setActiveMenuItemIndex(newArr.length - 1);
-  };
-
-  const removeItem = (field: 'menuItems' | 'speakers' | 'timeline' | 'participants', index: number) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const addItem = (field: 'menuSections' | 'menuItems' | 'speakers' | 'timeline' | 'participants', item: any) => {
+  // We need to tell TS that if field is menuSections, the item type is correct for adding tempId
+  if (field === 'menuSections') {
+    // Cast item to any to bypass the union type check for this specific operation
+    (item as any).tempId = generateTempId();
+  }
+  
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const newArr = [...eventData[field] as any[], item];
+  handleFieldChange(field, newArr);
+  
+  if (field === 'menuSections') setActiveSectionIndex(newArr.length - 1);
+  if (field === 'menuItems') setActiveMenuItemIndex(newArr.length - 1);
+};
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const removeItem = (field: 'menuSections' |'menuItems' | 'speakers' | 'timeline' | 'participants', index: number) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const itemToRemove = eventData[field][index];
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const newArr = (eventData[field] as any[]).filter((_, i) => i !== index);
     handleFieldChange(field, newArr);
+
+    // If removing a section, unset the active index
+    if (field === 'menuSections') {
+         if(index === activeSectionIndex) setActiveSectionIndex(null);
+         // Optional: Cascading delete - remove items belonging to this section?
+         // For now, let's just orphan them (set sectionTempId to null)
+         const updatedItems = eventData.menuItems.map(mi => 
+            mi.sectionTempId === itemToRemove.tempId ? { ...mi, sectionTempId: null } : mi
+         );
+         handleFieldChange('menuItems', updatedItems);
+    }
+
     if (field === 'menuItems' && index === activeMenuItemIndex) setActiveMenuItemIndex(null);
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const updateItem = (field: 'menuItems' | 'speakers' | 'timeline' | 'participants', index: number, key: string, val: any) => {
+  const updateItem = (field: 'menuSections' | 'menuItems' | 'speakers' | 'timeline' | 'participants', index: number, key: string, val: any) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const newArr = [...(eventData[field] as any[])];
     newArr[index] = { ...newArr[index], [key]: val };
@@ -132,6 +185,11 @@ export function EventCreator({ initialData, eventId }: EventCreatorProps) {
   };
 
   const iconStyle = { width: rem(18), height: rem(18) };
+
+  // Prepare options for the section select dropdown
+  const sectionOptions = eventData.menuSections.map(s => ({ value: s.tempId, label: s.title }));
+  sectionOptions.unshift({ value: '', label: 'Sem Seção (Geral)' });
+
 
   return (
     <form action={formAction}>
@@ -156,26 +214,27 @@ export function EventCreator({ initialData, eventId }: EventCreatorProps) {
           {/* ================= VISUAL EDITOR ================= */}
           <Tabs.Panel value="visual">
             <Tabs orientation="horizontal" variant="outline" defaultValue="general" radius="md">
-              <Tabs.List mb="md">
+              <Tabs.List mb="md" style={{flexWrap: 'wrap'}}>
                 <Tabs.Tab value="general" leftSection={<IconInfoCircle style={iconStyle} />}>Geral</Tabs.Tab>
                 <Tabs.Tab value="timeline" leftSection={<IconClock style={iconStyle} />}>Timeline</Tabs.Tab>
                 <Tabs.Tab value="speakers" leftSection={<IconUser style={iconStyle} />}>Palestrantes</Tabs.Tab>
-                <Tabs.Tab value="menu" leftSection={<IconToolsKitchen2 style={iconStyle} />}>Menu</Tabs.Tab>
+                {/* NEW TABS STRUCTURE */}
+                <Tabs.Tab value="menuSections" leftSection={<IconLayoutList style={iconStyle} />}>Seções do Menu</Tabs.Tab>
+                <Tabs.Tab value="menuItems" leftSection={<IconToolsKitchen2 style={iconStyle} />}>Pratos</Tabs.Tab>
                 <Tabs.Tab value="participants" leftSection={<IconUsersGroup style={iconStyle} />}>Participantes</Tabs.Tab>
                 <Tabs.Tab value="settings" leftSection={<IconSettings style={iconStyle} />}>Configurações</Tabs.Tab>
               </Tabs.List>
 
-              {/* 1. GENERAL */}
+              {/* 1. GENERAL - UPDATED WITH MAP */}
               <Tabs.Panel value="general">
                 <Grid gutter="xl">
                   <Grid.Col span={{ base: 12, md: 8 }}>
                     <Stack gap="md">
                       <TextInput label="Nome do Evento" value={eventData.name} onChange={(e) => handleFieldChange('name', e.target.value)} required />
                       <Textarea label="Descrição" value={eventData.description} onChange={(e) => handleFieldChange('description', e.target.value)} minRows={4} />
-                      <Group grow>
-                        <TextInput label="Dress Code" value={eventData.dressCode} onChange={(e) => handleFieldChange('dressCode', e.target.value)} />
-                        <TextInput label="Localização" value={eventData.locationInfo} onChange={(e) => handleFieldChange('locationInfo', e.target.value)} />
-                      </Group>
+                      {/* New Location Picker Component */}
+                      <LocationPicker value={eventData.location} onChange={handleLocationChange} />
+                      <TextInput label="Dress Code" value={eventData.dressCode} onChange={(e) => handleFieldChange('dressCode', e.target.value)} />
                     </Stack>
                   </Grid.Col>
                   <Grid.Col span={{ base: 12, md: 4 }}>
@@ -187,9 +246,9 @@ export function EventCreator({ initialData, eventId }: EventCreatorProps) {
                 </Grid>
               </Tabs.Panel>
 
-              {/* 2. TIMELINE */}
+              {/* 2. TIMELINE (Unchanged) */}
               <Tabs.Panel value="timeline">
-                <Stack gap="md">
+                 <Stack gap="md">
                   <Button variant="light" leftSection={<IconPlus size={16}/>} onClick={() => addItem('timeline', { time: '19:00', title: '', description: '', order: eventData.timeline.length + 1 })}>Adicionar Horário</Button>
                   {eventData.timeline.map((item, idx) => (
                     <Card key={idx} withBorder padding="sm"><Group align="flex-start"><TextInput w={80} value={item.time} onChange={(e) => updateItem('timeline', idx, 'time', e.target.value)} /><TextInput style={{flexGrow:1}} value={item.title} onChange={(e) => updateItem('timeline', idx, 'title', e.target.value)} /><ActionIcon color="red" onClick={() => removeItem('timeline', idx)}><IconTrash size={16}/></ActionIcon></Group></Card>
@@ -197,9 +256,9 @@ export function EventCreator({ initialData, eventId }: EventCreatorProps) {
                 </Stack>
               </Tabs.Panel>
 
-              {/* 3. SPEAKERS */}
+              {/* 3. SPEAKERS (Unchanged) */}
               <Tabs.Panel value="speakers">
-                <Stack gap="md">
+                 <Stack gap="md">
                    <Button variant="light" leftSection={<IconPlus size={16}/>} onClick={() => addItem('speakers', { name: '', role: '', bio: '', imageUrl: '' })}>Adicionar Palestrante</Button>
                    <Grid>
                     {eventData.speakers.map((speaker, idx) => (
@@ -220,47 +279,86 @@ export function EventCreator({ initialData, eventId }: EventCreatorProps) {
                 </Stack>
               </Tabs.Panel>
 
-              {/* 4. MENU - MASTER DETAIL */}
-              <Tabs.Panel value="menu">
-                <Paper withBorder h={500} style={{ display: 'flex', overflow: 'hidden' }}>
+              {/* 4. NEW TAB: MENU SECTIONS */}
+              <Tabs.Panel value="menuSections">
+                 <Paper withBorder h={500} style={{ display: 'flex', overflow: 'hidden' }}>
+                  {/* Master List */}
                   <Box w={250} style={{ borderRight: '1px solid var(--mantine-color-gray-3)', display: 'flex', flexDirection: 'column' }}>
                      <Box p="md" style={{ borderBottom: '1px solid var(--mantine-color-gray-3)' }}>
-                        <Button fullWidth variant="light" leftSection={<IconPlus size={16} />} onClick={() => addItem('menuItems', { title: 'Novo Prato', description: '', imageUrl: '', section: '' })}>Novo Item</Button>
+                        <Button fullWidth variant="light" leftSection={<IconPlus size={16} />} onClick={() => addItem('menuSections', { title: 'Nova Seção', imageUrl: '', order: eventData.menuSections.length })}>Nova Seção</Button>
                      </Box>
                      <ScrollArea style={{ flexGrow: 1 }}>
-                        {eventData.menuItems.map((item, idx) => (
-                          <NavLink key={idx} label={item.title || "(Sem título)"} active={idx === activeMenuItemIndex} onClick={() => setActiveMenuItemIndex(idx)} rightSection={<IconChevronRight size={14} />} color="red" variant="light" />
+                        {eventData.menuSections.map((item, idx) => (
+                          <NavLink key={item.tempId} label={item.title || "(Sem título)"} active={idx === activeSectionIndex} onClick={() => setActiveSectionIndex(idx)} rightSection={<IconChevronRight size={14} />} color="blue" variant="light" description={`Ordem: ${item.order}`}/>
                         ))}
                      </ScrollArea>
                   </Box>
-                  <Box style={{ flexGrow: 1 }} p="lg" bg="gray.0">
-                    {activeMenuItemIndex !== null && eventData.menuItems[activeMenuItemIndex] ? (
+                  {/* Detail View */}
+                  <Box style={{ flexGrow: 1 }} p="lg" bg="gray.0" style={{overflowY:'auto'}}>
+                    {activeSectionIndex !== null && eventData.menuSections[activeSectionIndex] ? (
                       <Stack gap="md">
-                        <Group justify="space-between"><Title order={4}>Editar Item</Title><Button color="red" variant="subtle" size="xs" onClick={() => removeItem('menuItems', activeMenuItemIndex)}>Remover</Button></Group>
+                        <Group justify="space-between"><Title order={4}>Editar Seção</Title><Button color="red" variant="subtle" size="xs" onClick={() => removeItem('menuSections', activeSectionIndex)}>Remover</Button></Group>
                         <Paper withBorder p="md" shadow="sm" radius="md">
                           <Stack gap="md">
-                             {/* ADDED SECTION INPUT HERE */}
-                            <TextInput 
-                              label="Seção (Opcional)" 
-                              placeholder="Ex: Entradas, Principal..." 
-                              value={eventData.menuItems[activeMenuItemIndex].section || ''} 
-                              onChange={(e) => updateItem('menuItems', activeMenuItemIndex, 'section', e.target.value)} 
-                            />
-                            
-                            <TextInput label="Título" value={eventData.menuItems[activeMenuItemIndex].title} onChange={(e) => updateItem('menuItems', activeMenuItemIndex, 'title', e.target.value)} />
-                            <Textarea label="Descrição" autosize minRows={4} value={eventData.menuItems[activeMenuItemIndex].description} onChange={(e) => updateItem('menuItems', activeMenuItemIndex, 'description', e.target.value)} />
-                            <ImageUpload label="Imagem" value={eventData.menuItems[activeMenuItemIndex].imageUrl} onChange={(url) => updateItem('menuItems', activeMenuItemIndex, 'imageUrl', url)} />
+                            <TextInput label="Título da Seção" value={eventData.menuSections[activeSectionIndex].title} onChange={(e) => updateItem('menuSections', activeSectionIndex, 'title', e.target.value)} required/>
+                             <NumberInput label="Ordem de Exibição" value={eventData.menuSections[activeSectionIndex].order} onChange={(val) => updateItem('menuSections', activeSectionIndex, 'order', val)} />
+                            <ImageUpload label="Imagem de Cabeçalho da Seção" value={eventData.menuSections[activeSectionIndex].imageUrl} onChange={(url) => updateItem('menuSections', activeSectionIndex, 'imageUrl', url)} />
                           </Stack>
                         </Paper>
                       </Stack>
-                    ) : <Stack align="center" justify="center" h="100%" c="dimmed"><Text>Selecione um item.</Text></Stack>}
+                    ) : <Stack align="center" justify="center" h="100%" c="dimmed"><Text>Selecione uma seção para editar.</Text></Stack>}
                   </Box>
                 </Paper>
               </Tabs.Panel>
 
-              {/* 5. PARTICIPANTS */}
+              {/* 5. UPDATED TAB: MENU ITEMS (PLATES) */}
+              <Tabs.Panel value="menuItems">
+                <Paper withBorder h={500} style={{ display: 'flex', overflow: 'hidden' }}>
+                  {/* Master List */}
+                  <Box w={250} style={{ borderRight: '1px solid var(--mantine-color-gray-3)', display: 'flex', flexDirection: 'column' }}>
+                     <Box p="md" style={{ borderBottom: '1px solid var(--mantine-color-gray-3)' }}>
+                        <Button fullWidth variant="light" leftSection={<IconPlus size={16} />} onClick={() => addItem('menuItems', { title: 'Novo Prato', description: '', imageUrl: '', sectionTempId: null })}>Novo Prato</Button>
+                     </Box>
+                     <ScrollArea style={{ flexGrow: 1 }}>
+                        {eventData.menuItems.map((item, idx) => {
+                            // Find section title for the label description
+                           const section = eventData.menuSections.find(s => s.tempId === item.sectionTempId);
+                           return (
+                          <NavLink key={idx} label={item.title || "(Sem título)"} description={section?.title || "Geral"} active={idx === activeMenuItemIndex} onClick={() => setActiveMenuItemIndex(idx)} rightSection={<IconChevronRight size={14} />} color="red" variant="light" />
+                        )})}
+                     </ScrollArea>
+                  </Box>
+                  {/* Detail View */}
+                  <Box style={{ flexGrow: 1 }} p="lg" bg="gray.0" style={{overflowY:'auto'}}>
+                    {activeMenuItemIndex !== null && eventData.menuItems[activeMenuItemIndex] ? (
+                      <Stack gap="md">
+                        <Group justify="space-between"><Title order={4}>Editar Prato</Title><Button color="red" variant="subtle" size="xs" onClick={() => removeItem('menuItems', activeMenuItemIndex)}>Remover</Button></Group>
+                        <Paper withBorder p="md" shadow="sm" radius="md">
+                          <Stack gap="md">
+                             {/* UPDATED: Select input for Section linking */}
+                            <Select
+                                label="Seção do Menu"
+                                placeholder="Selecione uma seção"
+                                data={sectionOptions}
+                                value={eventData.menuItems[activeMenuItemIndex].sectionTempId || ''}
+                                onChange={(val) => updateItem('menuItems', activeMenuItemIndex, 'sectionTempId', val === '' ? null : val)}
+                            />
+                            
+                            <TextInput label="Título do Prato" value={eventData.menuItems[activeMenuItemIndex].title} onChange={(e) => updateItem('menuItems', activeMenuItemIndex, 'title', e.target.value)} required />
+                            <Textarea label="Descrição" autosize minRows={4} value={eventData.menuItems[activeMenuItemIndex].description} onChange={(e) => updateItem('menuItems', activeMenuItemIndex, 'description', e.target.value)} />
+                            <ImageUpload label="Imagem do Prato" value={eventData.menuItems[activeMenuItemIndex].imageUrl} onChange={(url) => updateItem('menuItems', activeMenuItemIndex, 'imageUrl', url)} />
+                          </Stack>
+                        </Paper>
+                      </Stack>
+                    ) : <Stack align="center" justify="center" h="100%" c="dimmed"><Text>Selecione um prato para editar.</Text></Stack>}
+                  </Box>
+                </Paper>
+              </Tabs.Panel>
+
+              {/* 6. PARTICIPANTS (Unchanged) */}
               <Tabs.Panel value="participants">
-                <Stack gap="md">
+                 {/* ... (Same as before) */}
+                  <Stack gap="md">
                   <Group align="flex-start" grow>
                     <Stack gap="xs"><Text fw={500}>Adicionar em Massa</Text><Textarea placeholder="Nomes (um por linha)" minRows={5} value={bulkNames} onChange={(e) => setBulkNames(e.target.value)} /><Button variant="light" onClick={handleBulkAdd}>Adicionar</Button></Stack>
                     <Stack gap="xs">
@@ -279,7 +377,7 @@ export function EventCreator({ initialData, eventId }: EventCreatorProps) {
                 </Stack>
               </Tabs.Panel>
 
-              {/* 6. SETTINGS */}
+              {/* 7. SETTINGS (Unchanged) */}
               <Tabs.Panel value="settings">
                 <Paper withBorder p="lg"><Group justify="space-between"><Text fw={500}>Permitir +1</Text><Switch size="lg" onLabel="ON" offLabel="OFF" checked={eventData.hasPlusOne} onChange={(e) => handleFieldChange('hasPlusOne', e.currentTarget.checked)} /></Group></Paper>
               </Tabs.Panel>
@@ -288,11 +386,19 @@ export function EventCreator({ initialData, eventId }: EventCreatorProps) {
 
           <Tabs.Panel value="json">
             <JsonInput label="JSON" value={jsonString} onChange={handleJsonChange} formatOnBlur autosize minRows={20} />
+            {jsonError && <Text c="red" size="sm mt-xs">{jsonError}</Text>}
           </Tabs.Panel>
         </Tabs>
 
-        {/* Hidden Inputs */}
+        {/* UPDATED Hidden Inputs for Form Submission */}
+        <input type="hidden" name="locationAddress" value={eventData.location.address} />
+        {/* Need to cast nulls to empty strings for form data */}
+        <input type="hidden" name="locationLat" value={eventData.location.lat !== null ? eventData.location.lat : ''} />
+        <input type="hidden" name="locationLng" value={eventData.location.lng !== null ? eventData.location.lng : ''} />
+
         <input type="hidden" name="availableDates" value={JSON.stringify(eventData.availableDates)} />
+        {/* New sections input */}
+        <input type="hidden" name="menuSections" value={JSON.stringify(eventData.menuSections)} />
         <input type="hidden" name="menuItems" value={JSON.stringify(eventData.menuItems)} />
         <input type="hidden" name="speakers" value={JSON.stringify(eventData.speakers)} />
         <input type="hidden" name="timeline" value={JSON.stringify(eventData.timeline)} />
@@ -301,11 +407,10 @@ export function EventCreator({ initialData, eventId }: EventCreatorProps) {
         <input type="hidden" name="name" value={eventData.name} />
         <input type="hidden" name="description" value={eventData.description} />
         <input type="hidden" name="dressCode" value={eventData.dressCode} />
-        <input type="hidden" name="locationInfo" value={eventData.locationInfo} />
         <input type="hidden" name="imageUrl" value={eventData.imageUrl} />
 
         <Group justify="flex-end" mt="xl">
-          <Button type="submit" size="lg" color="red">{eventId ? "Salvar Alterações" : "Criar Evento"}</Button>
+          <Button type="submit" size="lg" color="red" loading={isPending}>{eventId ? "Salvar Alterações" : "Criar Evento"}</Button>
         </Group>
       </Paper>
     </form>
