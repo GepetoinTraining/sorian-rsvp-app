@@ -47,11 +47,15 @@ model User {
   email         String?   @unique
   emailVerified DateTime? @map("email_verified")
   image         String?
+  
+  // FIX: Restored the passwordHash field which is required for credentials auth
+  passwordHash  String?   
+  
   accounts      Account[]
   sessions      Session[]
   
   // Sorian Relations
-  events        Event[] // This is the opposite relation field that was missing
+  events        Event[] 
 
   @@map("users")
 }
@@ -79,22 +83,21 @@ model Event {
 
   // Location Info
   locationAddress String? @db.Text
-  locationLat     Float? // New field for latitude
-  locationLng     Float? // New field for longitude
+  locationLat     Float? 
+  locationLng     Float?
 
   imageUrl    String?  @db.Text
   hasPlusOne  Boolean  @default(false)
   
-  // This would be better as a separate model or JSON type, but array of strings works for now
   availableDates String[]
 
   // Relations
-  menuSections MenuSection[] // New relation to sections
-  menuItems    MenuItem[] // Direct relation to items (for easier fetching)
+  menuSections MenuSection[] 
+  menuItems    MenuItem[] 
   speakers     Speaker[]
   timeline     TimelineItem[]
   participants Participant[]
-  rsvps        RSVP[] // This is the opposite relation field that was missing
+  rsvps        RSVP[] 
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -102,7 +105,6 @@ model Event {
   @@map("events")
 }
 
-// NEW MODEL
 model MenuSection {
   id        String   @id @default(cuid())
   eventId   String
@@ -110,7 +112,7 @@ model MenuSection {
   
   title     String   @db.Text
   imageUrl  String?  @db.Text
-  order     Int      @default(0) // To keep them ordered in the UI
+  order     Int      @default(0) 
 
   // Relation to items
   items     MenuItem[]
@@ -123,7 +125,7 @@ model MenuItem {
   eventId     String
   event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
   
-  // New optional relation field
+  // Optional relation field
   sectionId   String?
   section     MenuSection? @relation(fields: [sectionId], references: [id])
 
@@ -152,7 +154,7 @@ model TimelineItem {
   eventId     String
   event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
   
-  time        String   // e.g., "19:00"
+  time        String   
   title       String   @db.Text
   description String?  @db.Text
   order       Int      @default(0)
@@ -166,18 +168,17 @@ model Participant {
   event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
   
   name        String   @db.Text
-  // Could add email, status (invited, etc.) here later
 
   @@map("participants")
 }
 
 model RSVP {
-  id          String   @id @default(cuid())
-  eventId     String
-  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  id              String   @id @default(cuid())
+  eventId         String
+  event           Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
   
   participantName String   @db.Text
-  selectedDate    String?  // Optional, if multiple dates
+  selectedDate    String? 
   
   hasPlusOne      Boolean  @default(false)
   plusOneName     String?  @db.Text
