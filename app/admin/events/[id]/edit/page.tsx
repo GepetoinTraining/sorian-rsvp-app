@@ -14,7 +14,7 @@ async function getEventForEdit(eventId: string, userId: string) {
       id: eventId,
     },
     include: {
-      // FIX: We must fetch menuSections to avoid the crash
+      // FIX 1: Fetch menuSections to prevent the crash
       menuSections: {
         orderBy: { order: 'asc' }
       },
@@ -54,7 +54,7 @@ export default async function EditEventPage({
     description: event.description || "",
     dressCode: event.dressCode || "",
     
-    // FIX: Map to new schema fields (locationAddress, locationLat, locationLng)
+    // FIX 2: Map to new schema fields (locationAddress, locationLat, locationLng)
     locationAddress: event.locationAddress || "", 
     locationLat: event.locationLat || null,
     locationLng: event.locationLng || null,
@@ -63,20 +63,20 @@ export default async function EditEventPage({
     hasPlusOne: event.hasPlusOne,
     availableDates: event.availableDates,
 
-    // FIX: Map Menu Sections
+    // FIX 3: Map Menu Sections correctly
     menuSections: event.menuSections.map(s => ({
-      id: s.id, // We pass the ID so the creator can map it to tempId
+      id: s.id, // Pass ID so Creator can map it to tempId
       title: s.title,
       imageUrl: s.imageUrl || "",
       order: s.order
     })),
 
-    // FIX: Map Menu Items with sectionId
+    // FIX 4: Pass sectionId explicitly (NOT sectionTempId) so EventCreator can map it
     menuItems: event.menuItems.map(i => ({ 
       title: i.title, 
       description: i.description || "", 
       imageUrl: i.imageUrl || "",
-      sectionTempId: i.sectionId || null // Link item to its section
+      sectionId: i.sectionId || null 
     })),
 
     speakers: event.speakers.map(s => ({
