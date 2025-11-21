@@ -55,6 +55,7 @@ const INITIAL_EVENT_STATE = {
 
 interface EventCreatorProps {
     // We need to map incoming DB data to our internal state structure if editing
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   initialData?: any; 
   eventId?: string;
 }
@@ -72,6 +73,7 @@ export function EventCreator({ initialData, eventId }: EventCreatorProps) {
                 lng: initialData.locationLng || null
             },
             // Map DB sections to state sections with tempId = dbId
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             menuSections: initialData.menuSections.map((s: any) => ({
                 tempId: s.id, 
                 title: s.title,
@@ -79,6 +81,7 @@ export function EventCreator({ initialData, eventId }: EventCreatorProps) {
                 order: s.order
             })),
             // Map DB items, ensuring sectionTempId matches the section's ID
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             menuItems: initialData.menuItems.map((i: any) => ({
                 title: i.title,
                 description: i.description || "",
@@ -99,9 +102,11 @@ export function EventCreator({ initialData, eventId }: EventCreatorProps) {
   const [activeMenuItemIndex, setActiveMenuItemIndex] = useState<number | null>(null);
   const [bulkNames, setBulkNames] = useState("");
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const actionToUse = eventId ? updateEvent.bind(null, eventId) : createEvent;
 
   const [state, formAction, isPending] = useActionState<ActionState, FormData>(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     actionToUse as any, 
     { success: false, message: null }
   );
@@ -112,6 +117,7 @@ export function EventCreator({ initialData, eventId }: EventCreatorProps) {
     setJsonString(JSON.stringify(newData, null, 2));
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleFieldChange = (field: keyof typeof startingState, value: any) => {
     updateState({ ...eventData, [field]: value });
   };
@@ -137,6 +143,7 @@ export function EventCreator({ initialData, eventId }: EventCreatorProps) {
   // We need to tell TS that if field is menuSections, the item type is correct for adding tempId
   if (field === 'menuSections') {
     // Cast item to any to bypass the union type check for this specific operation
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (item as any).tempId = generateTempId();
   }
   
@@ -147,7 +154,7 @@ export function EventCreator({ initialData, eventId }: EventCreatorProps) {
   if (field === 'menuSections') setActiveSectionIndex(newArr.length - 1);
   if (field === 'menuItems') setActiveMenuItemIndex(newArr.length - 1);
 };
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  
   const removeItem = (field: 'menuSections' |'menuItems' | 'speakers' | 'timeline' | 'participants', index: number) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const itemToRemove = eventData[field][index];
@@ -157,11 +164,14 @@ export function EventCreator({ initialData, eventId }: EventCreatorProps) {
 
     // If removing a section, unset the active index
     if (field === 'menuSections') {
+         // FIX: Cast itemToRemove to MenuSectionState to access tempId safely
+         const sectionToRemove = itemToRemove as MenuSectionState;
+         
          if(index === activeSectionIndex) setActiveSectionIndex(null);
          // Optional: Cascading delete - remove items belonging to this section?
          // For now, let's just orphan them (set sectionTempId to null)
          const updatedItems = eventData.menuItems.map(mi => 
-            mi.sectionTempId === itemToRemove.tempId ? { ...mi, sectionTempId: null } : mi
+            mi.sectionTempId === sectionToRemove.tempId ? { ...mi, sectionTempId: null } : mi
          );
          handleFieldChange('menuItems', updatedItems);
     }
