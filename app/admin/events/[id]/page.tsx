@@ -10,7 +10,7 @@ import {
   ThemeIcon 
 } from '@mantine/core';
 import { BackButton } from '@/app/components/BackButton'; 
-import { RsvpTable } from './RsvpTable'; // Import the new client component
+import { RsvpTable } from './RsvpTable'; 
 import { IconArrowLeft, IconUsers, IconCalendarStats } from '@tabler/icons-react';
 import { notFound, redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth';
@@ -39,12 +39,12 @@ export default async function ManageEventPage({ params }: { params: Promise<{ id
   }
 
   // Calculate Stats
+  // FIX: Updated property from 'bringingGuest' to 'hasPlusOne'
   const totalGuests = event.rsvps.reduce((acc, rsvp) => {
-    return acc + 1 + (rsvp.bringingGuest ? 1 : 0);
+    return acc + 1 + (rsvp.hasPlusOne ? 1 : 0);
   }, 0);
 
   // Prepare data: Format dates to strings on the SERVER
-  // This prevents hydration mismatches because the client just receives a static string
   const formattedRsvps = event.rsvps.map(rsvp => ({
     ...rsvp,
     confirmedAtFormatted: rsvp.createdAt.toLocaleString('pt-BR', {
@@ -53,7 +53,7 @@ export default async function ManageEventPage({ params }: { params: Promise<{ id
       year: '2-digit', 
       hour: '2-digit', 
       minute: '2-digit',
-      timeZone: 'America/Sao_Paulo' // Enforce BRT to ensure consistency
+      timeZone: 'America/Sao_Paulo' 
     })
   }));
 

@@ -2,13 +2,13 @@
 
 import { Table, Text, Badge, Group, Stack } from '@mantine/core';
 
+// FIX: Updated interface to match new Prisma Schema
 interface RsvpItem {
   id: string;
-  guestName: string;
-  bringingGuest: boolean;
+  participantName: string; // Was guestName
+  hasPlusOne: boolean;     // Was bringingGuest
   plusOneName: string | null;
-  selectedDates: string[];
-  // We receive the date as a pre-formatted string from the server
+  selectedDate: string | null; // Was selectedDates string[]
   confirmedAtFormatted: string; 
 }
 
@@ -16,10 +16,9 @@ interface RsvpTableProps {
   rsvps: RsvpItem[];
 }
 
-// Helper to format the 'selectedDates' strings (YYYY-MM-DD)
+// Helper to format the date strings (YYYY-MM-DD)
 const formatSelectedDate = (dateStr: string) => {
-  // Split string manually to avoid timezone conversion issues
-  const parts = dateStr.split('-');
+  const parts = dateStr.trim().split('-');
   if (parts.length === 3) {
     return `${parts[2]}/${parts[1]}`; // DD/MM
   }
@@ -46,40 +45,47 @@ export function RsvpTable({ rsvps }: RsvpTableProps) {
         </Table.Tr>
       </Table.Thead>
       <Table.Tbody>
-        {rsvps.map((rsvp) => (
-          <Table.Tr key={rsvp.id}>
-            <Table.Td>
-              <Text fw={600} c="gray.9">{rsvp.guestName}</Text>
-            </Table.Td>
-            
-            <Table.Td>
-              {rsvp.bringingGuest ? (
-                <Group gap="xs">
-                  <Badge color="green" size="sm" variant="light">Sim</Badge>
-                  <Text size="sm">{rsvp.plusOneName}</Text>
+        {rsvps.map((rsvp) => {
+          // FIX: Split the comma-separated string back into an array for display
+          const dateList = rsvp.selectedDate ? rsvp.selectedDate.split(',') : [];
+
+          return (
+            <Table.Tr key={rsvp.id}>
+              <Table.Td>
+                {/* FIX: Use participantName */}
+                <Text fw={600} c="gray.9">{rsvp.participantName}</Text>
+              </Table.Td>
+              
+              <Table.Td>
+                {/* FIX: Use hasPlusOne */}
+                {rsvp.hasPlusOne ? (
+                  <Group gap="xs">
+                    <Badge color="green" size="sm" variant="light">Sim</Badge>
+                    <Text size="sm">{rsvp.plusOneName}</Text>
+                  </Group>
+                ) : (
+                  <Badge color="gray" size="sm" variant="outline">Não</Badge>
+                )}
+              </Table.Td>
+
+              <Table.Td>
+                <Group gap={4}>
+                  {dateList.map((date, idx) => (
+                    <Badge key={idx} variant="dot" color="gray">
+                      {formatSelectedDate(date)}
+                    </Badge>
+                  ))}
                 </Group>
-              ) : (
-                <Badge color="gray" size="sm" variant="outline">Não</Badge>
-              )}
-            </Table.Td>
+              </Table.Td>
 
-            <Table.Td>
-              <Group gap={4}>
-                {rsvp.selectedDates.map((date) => (
-                  <Badge key={date} variant="dot" color="gray">
-                    {formatSelectedDate(date)}
-                  </Badge>
-                ))}
-              </Group>
-            </Table.Td>
-
-            <Table.Td>
-              <Text size="sm" c="dimmed">
-                {rsvp.confirmedAtFormatted}
-              </Text>
-            </Table.Td>
-          </Table.Tr>
-        ))}
+              <Table.Td>
+                <Text size="sm" c="dimmed">
+                  {rsvp.confirmedAtFormatted}
+                </Text>
+              </Table.Td>
+            </Table.Tr>
+          );
+        })}
       </Table.Tbody>
     </Table>
   );
