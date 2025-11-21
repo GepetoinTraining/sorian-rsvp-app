@@ -125,6 +125,7 @@ export function PlatesManager({ initialPlates }: PlatesManagerProps) {
         {editingPlate && (
             <form action={formAction}>
                 <input type="hidden" name="id" value={editingPlate.id} />
+                <input type="hidden" name="imageUrl" value={editingPlate.imageUrl || ''} />
                 <Stack gap="md" pos="relative">
                     <LoadingOverlay visible={isPending} overlayProps={{ radius: "sm", blur: 2 }} />
                     

@@ -13,7 +13,8 @@ const plateSchema = z.object({
   ingredients: z.string().optional(),
   preparation: z.string().optional(),
   dietaryTags: z.array(z.string()),
-  imageUrl: z.string().optional(),
+  // Change from .optional() to .nullish() to accept nulls
+  imageUrl: z.string().nullish(), 
 });
 
 export async function updatePlate(prevState: any, formData: FormData) {
