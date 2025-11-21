@@ -39,23 +39,24 @@ export async function submitRsvp(prevState: any, formData: FormData) {
   const { eventId, guestName, bringingGuest, plusOneName, selectedDates } = result.data;
 
   try {
-    // 3. Database Interaction
-    await prisma.rSVP.create({
-      data: {
-        eventId,
-        guestName,
-        bringingGuest,
-        plusOneName: bringingGuest ? plusOneName : null,
-        selectedDates,
-      },
-    });
+  // 3. Database Interaction
+  await prisma.rSVP.create({
+    data: {
+      eventId,
+      // Map Form variables -> New DB Columns
+      participantName: guestName, 
+      hasPlusOne: bringingGuest,
+      plusOneName: bringingGuest ? plusOneName : null,
+      selectedDate: selectedDates,
+    },
+  });
 
-    // 4. Revalidate Cache
-    revalidatePath(`/event/${eventId}`);
+  // 4. Revalidate Cache
+  revalidatePath(`/event/${eventId}`);
 
-    return { status: 'success', message: "Presença confirmada com sucesso!" };
-  } catch (error) {
-    console.error("RSVP Error:", error);
-    return { status: 'error', message: "Erro ao salvar confirmação. Tente novamente." };
-  }
+  return { status: 'success', message: "Presença confirmada com sucesso!" };
+} catch (error) {
+  console.error("RSVP Error:", error);
+  return { status: 'error', message: "Erro ao salvar confirmação. Tente novamente." };
+}
 }
