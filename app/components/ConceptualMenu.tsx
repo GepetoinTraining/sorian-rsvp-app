@@ -1,14 +1,20 @@
-// app/components/ConceptualMenu.tsx
 'use client';
 
-import { Box, Title, SimpleGrid, Card, Image, Text, Stack, Divider } from '@mantine/core';
+import { useState } from 'react';
+import { Box, Title, SimpleGrid, Image, Text, Stack, Divider } from '@mantine/core';
+import { useDisclosure } from '@mantine/hooks';
+import { MenuCard } from './MenuCard';
+import { RecipeModal } from './RecipeModal';
 
-// Interfaces based on the new Prisma schema structure
+// Define the full interface here or import from a shared types file
 interface MenuItem {
   id: string;
   title: string;
   description?: string | null;
   imageUrl?: string | null;
+  ingredients?: string | null;
+  preparation?: string | null;
+  dietaryTags: string[];
 }
 
 interface MenuSection {
@@ -19,71 +25,70 @@ interface MenuSection {
 }
 
 interface ConceptualMenuProps {
-  // The prop is now an array of full section objects
   menuSections: MenuSection[];
 }
 
 export function ConceptualMenu({ menuSections }: ConceptualMenuProps) {
-
-  // Filter out sections that have no items to avoid empty blocks
   const activeSections = menuSections.filter(section => section.items.length > 0);
+  
+  const [opened, { open, close }] = useDisclosure(false);
+  const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
+
+  const handleCardClick = (item: MenuItem) => {
+    setSelectedItem(item);
+    open();
+  };
 
   if (activeSections.length === 0) {
       return <Text c="dimmed" ta="center" my="xl">O menu ainda não foi definido.</Text>
   }
 
   return (
-    <Box my="xl">
-      <Title order={2} c="gray.9" ta="center" mb={50} style={{ fontFamily: 'var(--font-playfair), serif' }}>
-        A Coleção: Um Estudo em Texturas
-      </Title>
+    <>
+      {/* The Reusable Modal */}
+      <RecipeModal 
+        opened={opened} 
+        onClose={close} 
+        item={selectedItem} 
+      />
 
-      <Stack gap={60}>
-        {activeSections.map((section) => (
-          <Box key={section.id}>
-             {/* 1. Section Header Image (if exists) */}
-             {section.imageUrl && (
-                <Box mb="md" style={{ borderRadius: '8px', overflow: 'hidden' }}>
-                    <Image
-                        src={section.imageUrl}
-                        height={200} // Adjust height as needed for banner look
-                        alt={section.title}
-                        fit="cover"
-                    />
-                </Box>
-             )}
+      {/* The Menu List */}
+      <Box my="xl">
+        <Title order={2} c="gray.9" ta="center" mb={50} style={{ fontFamily: 'var(--font-playfair), serif' }}>
+          A Coleção: Um Estudo em Texturas
+        </Title>
 
-            {/* 2. Section Title & Divider */}
-             <Box mb="lg">
-                <Title order={3} size="h2" c="gray.8" fw={400} style={{ fontFamily: 'var(--font-playfair), serif', textAlign: section.imageUrl ? 'left' : 'center' }}>
-                  {section.title}
-                </Title>
-                <Divider mt="sm" />
-             </Box>
+        <Stack gap={60}>
+          {activeSections.map((section) => (
+            <Box key={section.id}>
+               {/* Section Header */}
+               {section.imageUrl && (
+                  <Box mb="md" style={{ borderRadius: '8px', overflow: 'hidden' }}>
+                      <Image src={section.imageUrl} height={200} alt={section.title} fit="cover" />
+                  </Box>
+               )}
 
+               <Box mb="lg">
+                  <Title order={3} size="h2" c="gray.8" fw={400} style={{ fontFamily: 'var(--font-playfair), serif', textAlign: section.imageUrl ? 'left' : 'center' }}>
+                    {section.title}
+                  </Title>
+                  <Divider mt="sm" />
+               </Box>
 
-            {/* 3. Menu Items Grid */}
-            <SimpleGrid cols={{ base: 1, md: 2 }} spacing="xl">
-              {section.items.map((item) => (
-                <Card key={item.id} shadow="sm" padding="lg" radius="md" withBorder>
-                  {item.imageUrl && (
-                    <Card.Section>
-                        <Image
-                        src={item.imageUrl}
-                        height={200}
-                        alt={item.title}
-                        fit="cover"
-                        />
-                    </Card.Section>
-                  )}
-                  <Title order={3} fw={700} mt="md" fz="lg">{item.title}</Title>
-                  <Text size="sm" c="dimmed" mt="xs">{item.description}</Text>
-                </Card>
-              ))}
-            </SimpleGrid>
-          </Box>
-        ))}
-      </Stack>
-    </Box>
+              {/* Grid of Reusable Cards */}
+              <SimpleGrid cols={{ base: 1, md: 2 }} spacing="xl">
+                {section.items.map((item) => (
+                  <MenuCard 
+                    key={item.id} 
+                    item={item} 
+                    onClick={() => handleCardClick(item)} 
+                  />
+                ))}
+              </SimpleGrid>
+            </Box>
+          ))}
+        </Stack>
+      </Box>
+    </>
   );
 }

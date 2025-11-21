@@ -2,7 +2,7 @@
 'use client';
 
 import { Container, Group, Button, Title, Anchor, Menu } from '@mantine/core';
-import { IconLogout, IconUser, IconSettings } from '@tabler/icons-react';
+import { IconLogout, IconUser, IconSettings, IconToolsKitchen2 } from '@tabler/icons-react';
 import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
 
@@ -41,6 +41,9 @@ export function Header() {
                   <Menu.Label>Gerenciamento</Menu.Label>
                   <Menu.Item component={Link} href="/admin/dashboard" leftSection={<IconSettings size={14} />}>
                     Dashboard
+                  </Menu.Item>
+                  <Menu.Item component={Link} href="/admin/plates" leftSection={<IconToolsKitchen2 size={14} />}>
+                    Gerenciar Pratos
                   </Menu.Item>
                   <Menu.Divider />
                   <Menu.Item 

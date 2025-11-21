@@ -125,13 +125,17 @@ model MenuItem {
   eventId     String
   event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
   
-  // Optional relation field
   sectionId   String?
   section     MenuSection? @relation(fields: [sectionId], references: [id])
 
   title       String   @db.Text
   description String?  @db.Text
   imageUrl    String?  @db.Text
+  
+  // --- NEW RECIPE FIELDS ---
+  ingredients String?  @db.Text  // Store as a long text (or split by newline)
+  preparation String?  @db.Text  // Instructions
+  dietaryTags String[]           // e.g. ["VEGAN", "VEGETARIAN", "LACTOSE_FREE", "CONTAINS_LACTOSE", "GLUTEN_FREE"]
   
   @@map("menu_items")
 }
