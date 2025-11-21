@@ -50,7 +50,9 @@ export default async function EditEventPage({
     name: event.name,
     description: event.description || "",
     dressCode: event.dressCode || "",
-    locationInfo: event.locationInfo || "",
+    address: event.address || "",  // Verify 'address' vs 'location' in schema.prisma
+    latitude: event.latitude || null,
+    longitude: event.longitude || null,
     imageUrl: event.imageUrl || "",
     hasPlusOne: event.hasPlusOne,
     availableDates: event.availableDates,
