@@ -14,9 +14,15 @@ async function getEventForEdit(eventId: string, userId: string) {
       id: eventId,
     },
     include: {
+      // FIX: We must fetch menuSections to avoid the crash
+      menuSections: {
+        orderBy: { order: 'asc' }
+      },
       menuItems: true,
       speakers: true,
-      timeline: true,
+      timeline: {
+        orderBy: { order: 'asc' }
+      },
       participants: true,
     }
   });
@@ -47,21 +53,32 @@ export default async function EditEventPage({
     name: event.name,
     description: event.description || "",
     dressCode: event.dressCode || "",
+    
     // FIX: Map to new schema fields (locationAddress, locationLat, locationLng)
-    address: event.locationAddress || "", 
-    latitude: event.locationLat || null,
-    longitude: event.locationLng || null,
+    locationAddress: event.locationAddress || "", 
+    locationLat: event.locationLat || null,
+    locationLng: event.locationLng || null,
     
     imageUrl: event.imageUrl || "",
     hasPlusOne: event.hasPlusOne,
     availableDates: event.availableDates,
+
+    // FIX: Map Menu Sections
+    menuSections: event.menuSections.map(s => ({
+      id: s.id, // We pass the ID so the creator can map it to tempId
+      title: s.title,
+      imageUrl: s.imageUrl || "",
+      order: s.order
+    })),
+
+    // FIX: Map Menu Items with sectionId
     menuItems: event.menuItems.map(i => ({ 
       title: i.title, 
       description: i.description || "", 
       imageUrl: i.imageUrl || "",
-      // FIX: Include sectionId so the form knows which section this item belongs to
-      sectionTempId: i.sectionId || null
+      sectionTempId: i.sectionId || null // Link item to its section
     })),
+
     speakers: event.speakers.map(s => ({
       name: s.name,
       role: s.role || "",
