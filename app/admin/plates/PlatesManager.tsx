@@ -171,16 +171,17 @@ export function PlatesManager({ initialPlates }: PlatesManagerProps) {
 
                     <Box>
                         <Text size="sm" fw={500} mb="xs">Restrições Alimentares</Text>
+                        {/* FIX: Removed 'name' from Group and added to Checkbox items */}
                         <Checkbox.Group 
                             defaultValue={editingPlate.dietaryTags}
-                            name="dietaryTags"
                         >
                             <SimpleGrid cols={2} spacing="xs">
                                 {DIETARY_OPTIONS.map(opt => (
                                     <Checkbox 
                                         key={opt.value} 
                                         value={opt.value} 
-                                        label={opt.label} 
+                                        label={opt.label}
+                                        name="dietaryTags" 
                                     />
                                 ))}
                             </SimpleGrid>
