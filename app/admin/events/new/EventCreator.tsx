@@ -385,7 +385,18 @@ export function EventCreator({ initialData, eventId }: EventCreatorProps) {
                     </Stack>
                   </Group>
                   <Divider />
-                  <InvitationGenerator event={{ id: eventId || "preview", name: eventData.name || "Evento" }} participants={eventData.participants} />
+                  <InvitationGenerator 
+  event={{ 
+    id: eventId || "preview", 
+    name: eventData.name || "Evento",
+    description: eventData.description,
+    // Ensure you map the location address from your state
+    locationAddress: eventData.location.address, 
+    dressCode: eventData.dressCode,
+    availableDates: eventData.availableDates
+  }} 
+  participants={eventData.participants} 
+/>
                 </Stack>
               </Tabs.Panel>
 
