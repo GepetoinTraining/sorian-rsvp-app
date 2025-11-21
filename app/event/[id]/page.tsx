@@ -13,13 +13,19 @@ async function getEvent(id: string) {
   return await prisma.event.findUnique({
     where: { id },
     include: {
-      // FIX: Fetch menuSections with their items
+      // 1. Fetch defined sections with their items
       menuSections: {
         include: {
           items: true
         },
         orderBy: {
           order: 'asc'
+        }
+      },
+      // 2. NEW: Fetch orphaned items (General/No Section)
+      menuItems: {
+        where: {
+          sectionId: null
         }
       }
     }
@@ -44,6 +50,22 @@ export default async function EventPage({ params, searchParams }: Props) {
   // Handle guest name from QR code/URL parameter
   const guestName = typeof name === 'string' ? name : '';
 
+  // --- PREPARE MENU DISPLAY ---
+  // Clone the sections to a mutable array
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const displayMenuSections: any[] = [...event.menuSections];
+
+  // If there are items without a section, wrap them in a virtual "General" section
+  if (event.menuItems.length > 0) {
+    displayMenuSections.unshift({
+      id: 'general-section', // Virtual ID
+      title: 'Menu',         // Generic title for general items
+      imageUrl: null,
+      items: event.menuItems,
+      order: -1              // Ensure it's handled first conceptually
+    });
+  }
+
   return (
     <>
       <Header />
@@ -64,9 +86,9 @@ export default async function EventPage({ params, searchParams }: Props) {
               locationInfo={event.locationAddress}
             />
             
-            {/* 3. Menu (Using Sections) */}
-            {event.menuSections.length > 0 && (
-              <ConceptualMenu menuSections={event.menuSections} />
+            {/* 3. Menu (Using Sections + Orphans) */}
+            {displayMenuSections.length > 0 && (
+              <ConceptualMenu menuSections={displayMenuSections} />
             )}
 
             {/* 4. RSVP Form */}
