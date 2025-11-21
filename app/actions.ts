@@ -47,7 +47,7 @@ export async function submitRsvp(prevState: any, formData: FormData) {
       participantName: guestName, 
       hasPlusOne: bringingGuest,
       plusOneName: bringingGuest ? plusOneName : null,
-      selectedDate: selectedDates,
+      selectedDate: selectedDates.join(', '),
     },
   });
 
